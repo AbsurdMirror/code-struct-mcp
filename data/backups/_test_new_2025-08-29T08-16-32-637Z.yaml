@@ -1,0 +1,14 @@
+metadata:
+  version: 1.0.0
+  created_at: '2025-08-29T04:03:29.129Z'
+  updated_at: '2025-08-29T08:16:32.630Z'
+  total_modules: 1
+modules:
+  NewTestModule:
+    name: NewTestModule
+    hierarchical_name: NewTestModule
+    description: 新添加的测试模块
+    type: variable
+    file_path: /test/new.ts
+    created_at: '2025-08-29T08:16:32.628Z'
+    updated_at: '2025-08-29T08:16:32.628Z'

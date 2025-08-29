@@ -1,0 +1,18 @@
+metadata:
+  version: 1.0.0
+  created_at: '2025-08-29T04:03:29.118Z'
+  updated_at: '2025-08-29T04:03:29.118Z'
+  total_modules: 1
+modules:
+  TestClass.ChildFunction:
+    name: ChildFunction
+    hierarchical_name: TestClass.ChildFunction
+    description: 子函数模块
+    type: function
+    parent_module: TestClass
+    file_path: /test/child.ts
+    dependencies: []
+    exports: []
+    metadata: {}
+    created_at: '2025-08-29T04:03:29.118Z'
+    updated_at: '2025-08-29T04:03:29.118Z'

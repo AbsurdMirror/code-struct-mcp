@@ -1,0 +1,17 @@
+metadata:
+  version: 1.0.0
+  created_at: '2025-08-29T04:03:29.139Z'
+  updated_at: '2025-08-29T08:13:34.970Z'
+  total_modules: 1
+modules:
+  FlowTestModule:
+    name: FlowTestModule
+    hierarchical_name: FlowTestModule
+    description: 更新后的流程测试模块
+    type: class
+    parent_module: null
+    file_path: /test/flow.ts
+    dependencies: []
+    exports: []
+    metadata: {}
+    updated_at: '2025-08-29T04:03:29.141Z'

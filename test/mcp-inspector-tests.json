@@ -1,0 +1,320 @@
+{
+  "test_suite": "MCP Inspector 测试套件",
+  "description": "用于MCP Inspector的完整测试配置和测试用例",
+  "version": "1.0.0",
+  "test_scenarios": {
+    "connection_tests": {
+      "name": "连接测试",
+      "description": "测试MCP服务器连接和初始化",
+      "tests": [
+        {
+          "name": "基本连接测试",
+          "description": "验证MCP服务器能够正常启动和连接",
+          "expected_capabilities": [
+            "tools",
+            "resources",
+            "prompts"
+          ]
+        },
+        {
+          "name": "协议版本测试",
+          "description": "验证MCP协议版本兼容性",
+          "expected_protocol_version": "2024-11-05"
+        }
+      ]
+    },
+    "tools_tests": {
+      "name": "工具测试",
+      "description": "测试所有MCP工具的功能",
+      "tests": [
+        {
+          "tool_name": "add_module",
+          "description": "测试添加模块功能",
+          "test_cases": [
+            {
+              "name": "添加类模块",
+              "input": {
+                "name": "TestClass",
+                "type": "class",
+                "hierarchical_name": "test.TestClass",
+                "file_path": "/test/TestClass.ts",
+                "description": "测试类模块",
+                "access_modifier": "public",
+                "methods": [
+                  {
+                    "name": "testMethod",
+                    "parameters": [
+                      {
+                        "name": "param1",
+                        "type": "string",
+                        "description": "测试参数"
+                      }
+                    ],
+                    "return_type": "void",
+                    "description": "测试方法"
+                  }
+                ],
+                "properties": [
+                  {
+                    "name": "testProperty",
+                    "type": "string",
+                    "description": "测试属性"
+                  }
+                ]
+              },
+              "expected_result": {
+                "success": true,
+                "data": {
+                  "hierarchical_name": "test.TestClass",
+                  "message": "模块添加成功"
+                }
+              }
+            },
+            {
+              "name": "添加函数模块",
+              "input": {
+                "name": "testFunction",
+                "type": "function",
+                "hierarchical_name": "utils.testFunction",
+                "file_path": "/utils/testFunction.ts",
+                "description": "测试函数模块",
+                "parameters": [
+                  {
+                    "name": "input",
+                    "type": "string",
+                    "description": "输入参数"
+                  }
+                ],
+                "return_type": "boolean",
+                "access_modifier": "public"
+              },
+              "expected_result": {
+                "success": true,
+                "data": {
+                  "hierarchical_name": "utils.testFunction",
+                  "message": "模块添加成功"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "tool_name": "get_module_by_name",
+          "description": "测试按名称获取模块功能",
+          "test_cases": [
+            {
+              "name": "获取存在的模块",
+              "input": {
+                "hierarchical_name": "test.TestClass"
+              },
+              "expected_result": {
+                "success": true,
+                "data": {
+                  "module": {
+                    "name": "TestClass",
+                    "type": "class",
+                    "hierarchical_name": "test.TestClass"
+                  }
+                }
+              }
+            },
+            {
+              "name": "获取不存在的模块",
+              "input": {
+                "hierarchical_name": "nonexistent.Module"
+              },
+              "expected_result": {
+                "success": false,
+                "data": {
+                  "message": "模块未找到"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "tool_name": "smart_search",
+          "description": "测试智能搜索功能",
+          "test_cases": [
+            {
+              "name": "按关键词搜索",
+              "input": {
+                "query": "test",
+                "limit": 10
+              },
+              "expected_result": {
+                "success": true,
+                "data": {
+                  "modules": [],
+                  "total": 0,
+                  "query": "test"
+                }
+              }
+            },
+            {
+              "name": "按类型搜索",
+              "input": {
+                "query": "class",
+                "limit": 5
+              },
+              "expected_result": {
+                "success": true,
+                "data": {
+                  "modules": [],
+                  "total": 0,
+                  "query": "class"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "tool_name": "get_type_structure",
+          "description": "测试获取类型结构功能",
+          "test_cases": [
+            {
+              "name": "获取类型层次结构",
+              "input": {
+                "type_name": "class"
+              },
+              "expected_result": {
+                "success": true,
+                "data": {
+                  "type_name": "class",
+                  "hierarchy": [],
+                  "related_modules": [],
+                  "relationships": []
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "error_handling_tests": {
+      "name": "错误处理测试",
+      "description": "测试各种错误情况的处理",
+      "tests": [
+        {
+          "name": "无效参数测试",
+          "description": "测试传入无效参数时的错误处理",
+          "test_cases": [
+            {
+              "tool_name": "add_module",
+              "input": {
+                "name": "",
+                "type": "invalid_type"
+              },
+              "expected_error": true
+            },
+            {
+              "tool_name": "get_module_by_name",
+              "input": {
+                "hierarchical_name": ""
+              },
+              "expected_error": true
+            }
+          ]
+        },
+        {
+          "name": "缺少必需参数测试",
+          "description": "测试缺少必需参数时的错误处理",
+          "test_cases": [
+            {
+              "tool_name": "add_module",
+              "input": {},
+              "expected_error": true
+            }
+          ]
+        }
+      ]
+    },
+    "performance_tests": {
+      "name": "性能测试",
+      "description": "测试MCP服务器的性能表现",
+      "tests": [
+        {
+          "name": "批量操作测试",
+          "description": "测试批量添加和搜索模块的性能",
+          "batch_size": 100,
+          "timeout_ms": 5000
+        },
+        {
+          "name": "并发请求测试",
+          "description": "测试并发请求的处理能力",
+          "concurrent_requests": 10,
+          "timeout_ms": 3000
+        }
+      ]
+    }
+  },
+  "test_data": {
+    "sample_modules": [
+      {
+        "name": "UserService",
+        "type": "class",
+        "hierarchical_name": "services.UserService",
+        "file_path": "/src/services/UserService.ts",
+        "description": "用户服务类",
+        "access_modifier": "public",
+        "methods": [
+          {
+            "name": "createUser",
+            "parameters": [
+              {
+                "name": "userData",
+                "type": "UserCreateData",
+                "description": "用户创建数据"
+              }
+            ],
+            "return_type": "Promise<User>",
+            "description": "创建新用户"
+          },
+          {
+            "name": "getUserById",
+            "parameters": [
+              {
+                "name": "id",
+                "type": "string",
+                "description": "用户ID"
+              }
+            ],
+            "return_type": "Promise<User | null>",
+            "description": "根据ID获取用户"
+          }
+        ],
+        "properties": [
+          {
+            "name": "repository",
+            "type": "UserRepository",
+            "description": "用户数据仓库"
+          }
+        ]
+      },
+      {
+        "name": "validateEmail",
+        "type": "function",
+        "hierarchical_name": "utils.validation.validateEmail",
+        "file_path": "/src/utils/validation.ts",
+        "description": "验证邮箱地址格式",
+        "parameters": [
+          {
+            "name": "email",
+            "type": "string",
+            "description": "邮箱地址"
+          }
+        ],
+        "return_type": "boolean",
+        "access_modifier": "public"
+      }
+    ]
+  },
+  "inspector_config": {
+    "auto_connect": true,
+    "show_request_logs": true,
+    "show_response_logs": true,
+    "timeout_ms": 10000,
+    "retry_attempts": 3,
+    "test_mode": true
+  }
+}
