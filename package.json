@@ -5,10 +5,12 @@
   "main": "dist/index.js",
   "scripts": {
     "check": "eslint src/**/*.ts tests/**/*.ts --fix && tsc --noEmit",
-    "start": "npm run build && node dist/backend/index.js",
+    "dev:api": "ts-node src/backend/server.ts",
+    "dev:mcp": "ts-node src/backend/mcp-server.ts",
+    "test": "npx jest --verbose --coverage --detectOpenHandles",
     "build": "tsc",
-    "dev": "ts-node src/backend/index.ts",
-    "test": "jest"
+    "start:api": "npm run build && node dist/backend/server.js",
+    "start:mcp": "npm run build && node dist/backend/mcp-server.js"
   },
   "keywords": [
     "mcp",
@@ -19,6 +21,7 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@types/cors": "^2.8.17",
     "@types/jest": "^29.5.0",
     "@types/js-yaml": "^4.0.0",
     "@types/node": "^20.0.0",
@@ -33,7 +36,9 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.4",
     "@types/express": "^5.0.3",
+    "cors": "^2.8.5",
     "express": "^5.1.0",
     "js-yaml": "^4.1.0"
   }

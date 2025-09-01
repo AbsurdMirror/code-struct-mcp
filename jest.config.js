@@ -23,7 +23,7 @@ module.exports = {
   },
   
   // 模块路径映射
-  moduleNameMapping: {
+  moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1'
   },
   
@@ -43,5 +43,9 @@ module.exports = {
   clearMocks: true,
   
   // 详细输出
-  verbose: true
+  verbose: true,
+  
+  // 禁用可能导致问题的选项
+  forceExit: true,
+  detectOpenHandles: false
 };

@@ -419,10 +419,21 @@ export function update_module(hierarchical_name: string, updates: Partial<Module
       };
     }
     
-    // 5. 更新模块数据
+    // 5. CHECK parent是否会产生循环引用
+    if ('parent' in updates && updates.parent) {
+      const has_circular = check_circular_reference(hierarchical_name, updates.parent);
+      if (has_circular) {
+        return {
+          success: false,
+          message: '检测到循环引用'
+        };
+      }
+    }
+    
+    // 6. 更新模块数据
     Object.assign(modules_cache[hierarchical_name], updates);
     
-    // 6. 调用MOD001.save_modules保存数据
+    // 7. 调用MOD001.save_modules保存数据
     const save_success = save_modules({ modules: modules_cache });
     if (!save_success) {
       return {
@@ -431,7 +442,7 @@ export function update_module(hierarchical_name: string, updates: Partial<Module
       };
     }
     
-    // 7. 返回成功结果
+    // 8. 返回成功结果
     return {
       success: true,
       message: '模块更新成功'
