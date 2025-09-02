@@ -256,23 +256,15 @@ describe('MCP服务器测试', () => {
     test('应该能够启动服务器', async () => {
       await expect(server.start()).resolves.not.toThrow();
       
-      expect(storage.initialize_storage).toHaveBeenCalled();
-      expect(moduleManager.initialize_module_manager).toHaveBeenCalled();
+      // MCP服务器启动时不再初始化存储和模块管理器，这些应该在app.ts中完成
       expect(StdioServerTransport).toHaveBeenCalled();
       expect(mockMCPServer.connect).toHaveBeenCalledWith(mockTransport);
     });
 
-    test('应该处理存储初始化失败', async () => {
-      (storage.initialize_storage as jest.Mock).mockRejectedValue(new Error('存储初始化失败') as never);
+    test('应该处理连接失败', async () => {
+      mockMCPServer.connect.mockRejectedValue(new Error('连接失败') as never);
       
-      const mockExit = jest.spyOn(process, 'exit').mockImplementation(() => {
-        throw new Error('process.exit called');
-      });
-      
-      await expect(server.start()).rejects.toThrow('process.exit called');
-      expect(mockExit).toHaveBeenCalledWith(1);
-      
-      mockExit.mockRestore();
+      await expect(server.start()).rejects.toThrow('连接失败');
     });
   });
 

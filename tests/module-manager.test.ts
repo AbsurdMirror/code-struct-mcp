@@ -41,6 +41,9 @@ describe('模块管理模块测试', () => {
     
     // 彻底重置存储系统
     save_modules({ modules: {} });
+    
+    // 初始化模块管理器
+    initialize_module_manager();
   });
   
   // 测试后清理

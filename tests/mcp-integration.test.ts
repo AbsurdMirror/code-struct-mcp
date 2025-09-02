@@ -5,6 +5,7 @@
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { clear_module_manager } from '../src/backend/module-manager';
 
 /**
  * MCP集成测试类
@@ -33,10 +34,10 @@ class MCPIntegrationTester {
   async startMCPServer(): Promise<void> {
     // 启动MCP服务器进程
     
-    // 创建stdio传输
+    // 创建stdio传输，使用测试专用的数据目录
     this.transport = new StdioClientTransport({
       command: 'npx',
-      args: ['ts-node', 'src/backend/mcp-server.ts']
+      args: ['ts-node', './src/backend/app.ts', '--mode', 'mcp', '--data-path', 'test_integration_data']
     });
 
     // 连接客户端
@@ -99,11 +100,31 @@ class MCPIntegrationTester {
   async testGetModuleByName(): Promise<void> {
     // TESTCASE002: 获取模块接口测试
     
-    // 测试获取之前添加的TestUserService模块
+    // 首先添加一个测试模块
+    const addResult = await this.client.callTool({
+      name: 'add_module',
+      arguments: {
+        name: 'TestGetModule',
+        type: 'class',
+        description: '用于获取测试的模块',
+        file: '/test/get-module.ts',
+        parentClass: 'BaseService',
+        functions: ['getUser', 'updateUser'],
+        variables: ['userId', 'userName']
+      },
+    });
+    
+    // 验证添加结果
+    const addParsed = JSON.parse((addResult.content as any)[0].text);
+    if (!addParsed.success) {
+      throw new Error(`添加测试模块失败: ${addParsed.message}`);
+    }
+    
+    // 测试获取刚添加的TestGetModule模块
     const getResult = await this.client.callTool({
       name: 'get_module_by_name',
       arguments: {
-        hierarchical_name: 'TestUserService',
+        hierarchical_name: 'TestGetModule',
       },
     });
     
@@ -114,7 +135,7 @@ class MCPIntegrationTester {
       throw new Error(`获取模块失败: ${result.message}`);
     }
     
-    if (!result.data || result.data.name !== 'TestUserService') {
+    if (!result.data || result.data.name !== 'TestGetModule') {
       throw new Error('获取的模块信息不正确');
     }
     
@@ -142,11 +163,31 @@ class MCPIntegrationTester {
   async testSmartSearch(): Promise<void> {
     // TESTCASE003: 智能搜索接口测试
     
-    // 测试按名称搜索（搜索之前添加的TestUserService）
+    // 首先添加一个测试模块用于搜索
+    const addResult = await this.client.callTool({
+      name: 'add_module',
+      arguments: {
+        name: 'TestSearchModule',
+        type: 'class',
+        description: '用于搜索测试的模块',
+        file: '/test/search-module.ts',
+        parentClass: 'BaseService',
+        functions: ['searchUser', 'findUser'],
+        variables: ['searchQuery', 'results']
+      },
+    });
+    
+    // 验证添加结果
+    const addParsed = JSON.parse((addResult.content as any)[0].text);
+    if (!addParsed.success) {
+      throw new Error(`添加搜索测试模块失败: ${addParsed.message}`);
+    }
+    
+    // 测试按名称搜索（搜索刚添加的TestSearchModule）
     const nameSearchResult = await this.client.callTool({
       name: 'smart_search',
       arguments: {
-        name: 'TestUser',
+        name: 'TestSearch',
       },
     });
     
@@ -285,16 +326,14 @@ class MCPIntegrationTester {
 describe('MCP集成测试', () => {
   let tester: MCPIntegrationTester;
   
-  beforeAll(async () => {
-    tester = new MCPIntegrationTester();
-    await tester.startMCPServer();
-  });
-  
   beforeEach(async () => {
+    // 清理模块管理器的内存缓存
+    clear_module_manager();
+    
     // 清理存储数据，确保每个测试都从干净的状态开始
     const fs = require('fs');
     const path = require('path');
-    const storageDir = path.join(process.cwd(), '.code-doc-mcp');
+    const storageDir = path.join(process.cwd(), 'test_integration_data');
     
     if (fs.existsSync(storageDir)) {
       const files = fs.readdirSync(storageDir);
@@ -313,6 +352,17 @@ describe('MCP集成测试', () => {
     
     // 等待一下确保清理完成
     await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // 为每个测试创建新的tester实例并启动MCP服务器
+    tester = new MCPIntegrationTester();
+    await tester.startMCPServer();
+  });
+  
+  afterEach(async () => {
+    // 在每个测试后停止MCP服务器
+    if (tester) {
+      await tester.stopMCPServer();
+    }
   });
   
   test('TESTCASE001: 添加模块接口测试', async () => {

@@ -1,10 +1,38 @@
 import { load_modules, save_modules, initialize_storage } from './storage';
+import { Logger } from './app';
 
 /**
  * 模块管理模块
  * 负责代码模块的创建、读取、更新和删除操作，支持多种代码元素类型的管理
  * 维护模块之间的层级和关联关系，确保代码文档的完整性和一致性
  */
+
+// 模块管理器的日志实例
+let moduleManagerLogger: Logger | null = null;
+
+/**
+ * 设置模块管理器的日志实例
+ * @param logger 日志实例
+ */
+export function setModuleManagerLogger(logger: Logger): void {
+  moduleManagerLogger = logger;
+}
+
+/**
+ * 获取日志实例，如果未设置则返回空操作的日志对象
+ */
+function getLogger(): Logger {
+  if (moduleManagerLogger) {
+    return moduleManagerLogger;
+  }
+  // 返回空操作的日志对象，避免错误
+  return {
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+    debug: () => {}
+  };
+}
 
 // 参数接口定义
 export interface Parameter {
@@ -80,16 +108,24 @@ let relationships: Record<string, ModuleRelationship> = {};
  * 加载现有的模块数据到缓存中
  */
 export function initialize_module_manager(): void {
-  // 确保存储环境已初始化
-  initialize_storage();
+  const logger = getLogger();
+  logger.info('开始初始化模块管理器');
   
-  // 加载现有模块数据
+  // 加载现有模块数据（存储环境应该已经在外部初始化）
   const loaded_data = load_modules();
   if (loaded_data && loaded_data.modules) {
     modules_cache = loaded_data.modules;
+    const moduleCount = Object.keys(modules_cache).length;
+    logger.info(`加载了 ${moduleCount} 个模块到缓存`);
+    
     // 重建关系映射
     rebuild_relationships();
+    logger.debug('模块关系映射重建完成');
+  } else {
+    logger.info('未找到现有模块数据，使用空缓存');
   }
+  
+  logger.info('模块管理器初始化完成');
 }
 
 /**
@@ -204,82 +240,113 @@ function check_circular_reference(hierarchical_name: string, parent?: string): b
  * @returns 操作结果
  */
 export function add_module(module: Module): { success: boolean; message: string } {
+  const logger = getLogger();
+  logger.info(`开始添加模块: ${module.hierarchical_name}`);
+  
   try {
     // 1. CHECK module.name格式
     if (!validate_name_format(module.name)) {
+      const errorMsg = `模块名称格式无效: ${module.name}，只支持字母、数字、下划线，不能以数字开头`;
+      logger.warn(errorMsg);
       return {
         success: false,
-        message: `模块名称格式无效: ${module.name}，只支持字母、数字、下划线，不能以数字开头`
+        message: errorMsg
       };
     }
+    logger.debug(`模块名称格式验证通过: ${module.name}`);
     
     // 2. CHECK module.hierarchical_name格式
     const parts = module.hierarchical_name.split('.');
     if (!validate_hierarchical_name_format(module.hierarchical_name)) {
       // 如果是深度超过5层的问题，返回特定的错误消息
       if (parts.length > 5) {
+        const errorMsg = '模块嵌套深度不能超过5层';
+        logger.warn(errorMsg);
         return {
           success: false,
-          message: '模块嵌套深度不能超过5层'
+          message: errorMsg
         };
       }
+      const errorMsg = `层次化名称格式无效: ${module.hierarchical_name}，点号分隔，每段符合name格式规范，最大深度5层。实际层数: ${parts.length}`;
+      logger.warn(errorMsg);
       return {
         success: false,
-        message: `层次化名称格式无效: ${module.hierarchical_name}，点号分隔，每段符合name格式规范，最大深度5层。实际层数: ${parts.length}`
+        message: errorMsg
       };
     }
+    logger.debug(`层级名称格式验证通过: ${module.hierarchical_name}`);
     
     // 3. CHECK module.hierarchical_name在modules_cache中是否已存在
     if (modules_cache[module.hierarchical_name]) {
+      const errorMsg = `模块已存在: ${module.hierarchical_name}`;
+      logger.warn(errorMsg);
       return {
         success: false,
-        message: `模块已存在: ${module.hierarchical_name}`
+        message: errorMsg
       };
     }
+    logger.debug(`模块不存在，可以添加: ${module.hierarchical_name}`);
     
     // 4. CHECK module.type是否在supported_types中
     if (!supported_types.includes(module.type)) {
+      const errorMsg = `不支持的模块类型: ${module.type}`;
+      logger.warn(errorMsg);
       return {
         success: false,
-        message: `不支持的模块类型: ${module.type}`
+        message: errorMsg
       };
     }
+    logger.debug(`模块类型验证通过: ${module.type}`);
     
     // 5. CHECK 自引用（优先检查）
     if (module.parent === module.hierarchical_name) {
+      const errorMsg = '模块不能引用自身作为父模块';
+      logger.warn(errorMsg);
       return {
         success: false,
-        message: '模块不能引用自身作为父模块'
+        message: errorMsg
       };
     }
     
     // 6. CHECK module.parent是否存在（如果指定了父模块）
     if (module.parent && !modules_cache[module.parent]) {
+      const errorMsg = `父模块不存在: ${module.parent}`;
+      logger.warn(errorMsg);
       return {
         success: false,
-        message: `父模块不存在: ${module.parent}`
+        message: errorMsg
       };
+    }
+    if (module.parent) {
+      logger.debug(`父模块验证通过: ${module.parent}`);
+    } else {
+      logger.debug('根模块，无需父模块验证');
     }
     
     // 7. CHECK module.parent是否存在循环引用
     if (check_circular_reference(module.hierarchical_name, module.parent)) {
+      const errorMsg = '检测到循环引用';
+      logger.warn(errorMsg);
       return {
         success: false,
-        message: '检测到循环引用'
+        message: errorMsg
       };
     }
     
     // 8. CHECK层次深度是否超过5层
     const depth = module.hierarchical_name.split('.').length;
     if (depth > 5) {
+      const errorMsg = '模块嵌套深度不能超过5层';
+      logger.warn(errorMsg);
       return {
         success: false,
-        message: '模块嵌套深度不能超过5层'
+        message: errorMsg
       };
     }
     
     // 9. 添加模块到缓存
     modules_cache[module.hierarchical_name] = module;
+    logger.debug(`模块已添加到缓存: ${module.hierarchical_name}`);
     
     // 10. 更新relationships映射
     if (!relationships[module.hierarchical_name]) {
@@ -305,6 +372,7 @@ export function add_module(module: Module): { success: boolean; message: string 
         relationships[module.parent].children.push(module.name);
       }
     }
+    logger.debug('关系映射已更新');
     
     // 11. 调用MOD001.save_modules保存数据
     const save_success = save_modules({ modules: modules_cache });
@@ -312,21 +380,28 @@ export function add_module(module: Module): { success: boolean; message: string 
       // 回滚操作
       delete modules_cache[module.hierarchical_name];
       delete relationships[module.hierarchical_name];
+      const errorMsg = '保存数据失败';
+      logger.error(errorMsg);
       return {
         success: false,
-        message: '保存数据失败'
+        message: errorMsg
       };
     }
+    logger.debug('模块数据已保存到存储');
     
     // 12. 返回成功结果
+    const successMsg = '模块添加成功';
+    logger.info(`${successMsg}: ${module.hierarchical_name}`);
     return {
       success: true,
-      message: '模块添加成功'
+      message: successMsg
     };
   } catch (error) {
+    const errorMsg = `添加模块时发生错误: ${error instanceof Error ? error.message : String(error)}`;
+    logger.error(errorMsg);
     return {
       success: false,
-      message: `添加模块失败: ${error instanceof Error ? error.message : String(error)}`
+      message: errorMsg
     };
   }
 }
@@ -386,71 +461,124 @@ export function find_modules(criteria: SearchCriteria): Module[] {
  * @returns 操作结果
  */
 export function update_module(hierarchical_name: string, updates: Partial<Module>): { success: boolean; message: string } {
+  const logger = getLogger();
+  logger.info(`开始更新模块: ${hierarchical_name}`);
+  
   try {
     // 1. CHECK hierarchical_name是否在modules_cache中
     if (!modules_cache[hierarchical_name]) {
+      const errorMsg = `模块不存在: ${hierarchical_name}`;
+      logger.warn(errorMsg);
       return {
         success: false,
-        message: `模块不存在: ${hierarchical_name}`
+        message: errorMsg
       };
     }
+    logger.debug(`模块存在，可以更新: ${hierarchical_name}`);
     
     // 2. CHECK updates是否包含hierarchical_name字段
     if ('hierarchical_name' in updates) {
+      const errorMsg = '不允许修改模块的hierarchical_name';
+      logger.warn(errorMsg);
       return {
         success: false,
-        message: '不允许修改模块的hierarchical_name'
+        message: errorMsg
       };
     }
-    
-    // 3. CHECK updates是否包含name字段
+
+    // 2.1 CHECK updates是否包含name字段
     if ('name' in updates) {
+      const errorMsg = '不允许修改模块的name';
+      logger.warn(errorMsg);
       return {
         success: false,
-        message: '不允许修改模块的name'
+        message: errorMsg
       };
     }
-    
-    // 4. CHECK updates是否包含type字段
+
+    // 2.2 CHECK updates是否包含type字段
     if ('type' in updates) {
+      const errorMsg = '不允许修改模块类型';
+      logger.warn(errorMsg);
       return {
         success: false,
-        message: '不允许修改模块类型'
+        message: errorMsg
       };
+    }
+
+    // 3. 如果更新了name，需要验证格式
+    if (updates.name && !validate_name_format(updates.name)) {
+      const errorMsg = `模块名称格式无效: ${updates.name}`;
+      logger.warn(errorMsg);
+      return {
+        success: false,
+        message: errorMsg
+      };
+    }
+    if (updates.name) {
+      logger.debug(`模块名称格式验证通过: ${updates.name}`);
+    }
+
+    // 4. 如果更新了type，需要验证是否支持
+    if (updates.type && !supported_types.includes(updates.type)) {
+      const errorMsg = `不支持的模块类型: ${updates.type}`;
+      logger.warn(errorMsg);
+      return {
+        success: false,
+        message: errorMsg
+      };
+    }
+    if (updates.type) {
+      logger.debug(`模块类型验证通过: ${updates.type}`);
     }
     
     // 5. CHECK parent是否会产生循环引用
     if ('parent' in updates && updates.parent) {
       const has_circular = check_circular_reference(hierarchical_name, updates.parent);
       if (has_circular) {
+        const errorMsg = '检测到循环引用';
+        logger.warn(errorMsg);
         return {
           success: false,
-          message: '检测到循环引用'
+          message: errorMsg
         };
       }
+      logger.debug(`父模块引用检查通过: ${updates.parent}`);
     }
     
     // 6. 更新模块数据
     Object.assign(modules_cache[hierarchical_name], updates);
+    logger.debug(`模块已更新到缓存: ${hierarchical_name}`);
     
-    // 7. 调用MOD001.save_modules保存数据
+    // 7. 更新关系映射
+    rebuild_relationships();
+    logger.debug('关系映射已更新');
+    
+    // 8. 调用MOD001.save_modules保存数据
     const save_success = save_modules({ modules: modules_cache });
     if (!save_success) {
+      const errorMsg = '保存数据失败';
+      logger.error(errorMsg);
       return {
         success: false,
-        message: '保存数据失败'
+        message: errorMsg
       };
     }
+    logger.debug('模块数据已保存到存储');
     
-    // 8. 返回成功结果
+    // 9. 返回成功结果
+    const successMsg = '模块更新成功';
+    logger.info(successMsg);
     return {
       success: true,
-      message: '模块更新成功'
+      message: successMsg
     };
   } catch (error) {
+    const errorMsg = `更新模块时发生错误: ${error instanceof Error ? error.message : String(error)}`;
+    logger.error(errorMsg);
     return {
       success: false,
-      message: `更新模块失败: ${error instanceof Error ? error.message : String(error)}`
+      message: errorMsg
     };
   }
 }

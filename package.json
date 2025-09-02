@@ -5,12 +5,12 @@
   "main": "dist/index.js",
   "scripts": {
     "check": "eslint src/**/*.ts tests/**/*.ts --fix && tsc --noEmit",
-    "dev:api": "ts-node src/backend/server.ts",
-    "dev:mcp": "ts-node src/backend/mcp-server.ts",
+    "dev:api": "ts-node src/backend/app.ts --mode api --port 3000 --data-path ./data",
+    "dev:mcp": "ts-node src/backend/app.ts --mode mcp --data-path ./data",
     "test": "npx jest --verbose --coverage --detectOpenHandles",
     "build": "tsc",
-    "start:api": "npm run build && node dist/backend/server.js",
-    "start:mcp": "npm run build && node dist/backend/mcp-server.js"
+    "start:api": "npm run build && node dist/backend/app.js --mode api --port 3000 --data-path ./data",
+    "start:mcp": "npm run build && node dist/backend/app.js --mode mcp --data-path ./data"
   },
   "keywords": [
     "mcp",

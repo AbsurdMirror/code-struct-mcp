@@ -18,6 +18,42 @@ import * as storage from './storage';
 import { Module, SearchCriteria } from '../shared/types';
 
 /**
+ * 日志接口
+ */
+interface Logger {
+  info(message: string): void;
+  warn(message: string): void;
+  error(message: string): void;
+  debug(message: string): void;
+}
+
+/**
+ * MCP服务器日志实例
+ */
+let mcpServerLogger: Logger | null = null;
+
+/**
+ * 设置MCP服务器日志实例
+ * @param logger 日志实例
+ */
+export function setMCPServerLogger(logger: Logger): void {
+  mcpServerLogger = logger;
+}
+
+/**
+ * 获取日志实例
+ * @returns 日志实例
+ */
+function getLogger(): Logger {
+  return mcpServerLogger || {
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+    debug: () => {}
+  };
+}
+
+/**
  * MCP服务器类
  */
 class MCPServer {
@@ -189,24 +225,37 @@ class MCPServer {
     // 处理工具调用
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
+      const logger = getLogger();
+      logger.info(`MCP工具调用: ${name}`);
+      logger.debug(`工具参数: ${JSON.stringify(args)}`);
 
       try {
+        let result;
         switch (name) {
         case 'add_module':
-          return await this.handleAddModule(args);
+          result = await this.handleAddModule(args);
+          break;
         case 'get_module_by_name':
-          return await this.handleGetModuleByName(args);
+          result = await this.handleGetModuleByName(args);
+          break;
         case 'smart_search':
-          return await this.handleSmartSearch(args);
+          result = await this.handleSmartSearch(args);
+          break;
         case 'get_type_structure':
-          return await this.handleGetTypeStructure(args);
+          result = await this.handleGetTypeStructure(args);
+          break;
         default:
+          logger.error(`未知工具: ${name}`);
           throw new McpError(
             ErrorCode.MethodNotFound,
             `未知工具: ${name}`
           );
         }
+        logger.debug(`MCP工具调用成功: ${name}`);
+        return result;
       } catch (error) {
+        const errorMsg = `MCP工具调用失败: ${name} - ${error instanceof Error ? error.message : String(error)}`;
+        logger.error(errorMsg);
         if (error instanceof McpError) {
           throw error;
         }
@@ -222,11 +271,16 @@ class MCPServer {
    * 处理add_module工具调用
    */
   private async handleAddModule(args: any) {
+    const logger = getLogger();
+    logger.debug(`处理add_module工具: name=${args.name}, type=${args.type}`);
+    
     // 验证必需参数
     if (!args.name || !args.type || !args.description) {
+      const errorMsg = '缺少必需参数: name, type, description';
+      logger.warn(`add_module参数验证失败: ${errorMsg}`);
       throw new McpError(
         ErrorCode.InvalidParams,
-        '缺少必需参数: name, type, description'
+        errorMsg
       );
     }
 
@@ -248,9 +302,11 @@ class MCPServer {
       if (args.access) moduleData.access = args.access;
     } else if (args.type === 'function') {
       if (!args.parameters || !args.returnType) {
+        const errorMsg = 'function类型需要parameters和returnType参数';
+        logger.warn(`add_module function类型参数验证失败: ${errorMsg}`);
         throw new McpError(
           ErrorCode.InvalidParams,
-          'function类型需要parameters和returnType参数'
+          errorMsg
         );
       }
       moduleData.parameters = args.parameters;
@@ -258,9 +314,11 @@ class MCPServer {
       if (args.access) moduleData.access = args.access;
     } else if (args.type === 'variable') {
       if (!args.dataType) {
+        const errorMsg = 'variable类型需要dataType参数';
+        logger.warn(`add_module variable类型参数验证失败: ${errorMsg}`);
         throw new McpError(
           ErrorCode.InvalidParams,
-          'variable类型需要dataType参数'
+          errorMsg
         );
       }
       moduleData.dataType = args.dataType;
@@ -268,8 +326,13 @@ class MCPServer {
       if (args.access) moduleData.access = args.access;
     }
 
+    logger.debug(`构造的模块数据: ${JSON.stringify(moduleData)}`);
     // 调用人类接口模块
     const result = humanInterface.add_module(moduleData);
+    logger.debug(`add_module调用结果: ${result.success ? '成功' : '失败'}`);
+    if (!result.success) {
+      logger.warn(`add_module失败: ${result.message}`);
+    }
 
     return {
       content: [
@@ -285,14 +348,23 @@ class MCPServer {
    * 处理get_module_by_name工具调用
    */
   private async handleGetModuleByName(args: any) {
+    const logger = getLogger();
+    logger.debug(`处理get_module_by_name工具: hierarchical_name=${args.hierarchical_name}`);
+    
     if (!args.hierarchical_name) {
+      const errorMsg = '缺少必需参数: hierarchical_name';
+      logger.warn(`get_module_by_name参数验证失败: ${errorMsg}`);
       throw new McpError(
         ErrorCode.InvalidParams,
-        '缺少必需参数: hierarchical_name'
+        errorMsg
       );
     }
 
     const result = humanInterface.get_module_by_hierarchical_name(args.hierarchical_name);
+    logger.debug(`get_module_by_name调用结果: ${result.success ? '成功' : '失败'}`);
+    if (!result.success) {
+      logger.warn(`get_module_by_name失败: ${result.message}`);
+    }
 
     return {
       content: [
@@ -308,49 +380,72 @@ class MCPServer {
    * 处理smart_search工具调用
    */
   private async handleSmartSearch(args: any) {
-    let result: any;
+    const logger = getLogger();
+    const limit = args.limit || 50;
+    logger.debug(`处理smart_search工具: keyword=${args.keyword}, name=${args.name}, limit=${limit}`);
     
-    // 如果有keyword，使用search_modules进行关键词搜索
     if (args.keyword || args.name) {
-      const searchQuery: any = {
+      // 使用人类接口的搜索功能
+      logger.debug(`使用人类接口搜索: ${args.keyword || args.name}`);
+      const result = humanInterface.search_modules({
         keyword: args.keyword || args.name,
-        type: args.type as 'class' | 'function' | 'variable' | 'file' | 'functionGroup' | undefined,
-        limit: 50
-      };
-      result = humanInterface.search_modules(searchQuery);
-    } else {
-      // 如果只有type或其他条件，直接使用find_modules
-      const searchCriteria: any = {};
-      if (args.type) {
-        searchCriteria.type = args.type;
+        type: args.type,
+        limit: limit
+      });
+      
+      logger.debug(`smart_search人类接口调用结果: ${result.success ? '成功' : '失败'}`);
+      if (result.success && result.data) {
+        logger.debug(`搜索到${result.data.length || 0}个模块`);
       }
       
-      const modules = moduleManager.find_modules(searchCriteria);
-      result = {
-        success: true,
-        message: '搜索成功',
-        data: modules.slice(0, 50) // 限制返回数量
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            success: result.success,
+            data: result.data,
+            message: result.message
+          }, null, 2)
+        }]
+      };
+    } else {
+      // 使用模块管理器的查找功能
+      logger.debug('使用模块管理器查找所有模块');
+      const modules = moduleManager.find_modules({});
+      const limitedModules = modules.slice(0, limit);
+      
+      logger.debug(`模块管理器查找到${modules.length}个模块，返回前${limitedModules.length}个`);
+      
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            success: true,
+            data: {
+              modules: limitedModules,
+              total: modules.length,
+              page: 1,
+              pageSize: limit
+            }
+          }, null, 2)
+        }]
       };
     }
-
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(result, null, 2),
-        },
-      ],
-    };
   }
 
   /**
    * 处理get_type_structure工具调用
    */
   private async handleGetTypeStructure(args: any) {
+    const logger = getLogger();
+    logger.debug(`处理get_type_structure工具: type_name=${args.type_name}`);
+    
     if (!args.type_name) {
+      const errorMsg = '缺少必需参数: type_name';
+      logger.warn(`get_type_structure参数验证失败: ${errorMsg}`);
       throw new McpError(
         ErrorCode.InvalidParams,
-        '缺少必需参数: type_name'
+        errorMsg
       );
     }
 
@@ -441,11 +536,15 @@ class MCPServer {
 
     const typeStructure = typeStructures[args.type_name];
     if (!typeStructure) {
+      const errorMsg = `不支持的类型: ${args.type_name}`;
+      logger.warn(`get_type_structure不支持的类型: ${errorMsg}`);
       throw new McpError(
         ErrorCode.InvalidParams,
-        `不支持的类型: ${args.type_name}`
+        errorMsg
       );
     }
+    
+    logger.debug(`get_type_structure成功返回类型结构: ${args.type_name}`);
 
     const result = {
       success: true,
@@ -467,33 +566,74 @@ class MCPServer {
    * 初始化并启动MCP服务器
    */
   async start(): Promise<void> {
+    const logger = getLogger();
+    logger.info('启动MCP服务器');
+    
     try {
-      // 初始化存储模块
-      await storage.initialize_storage();
-      
-      // 初始化模块管理器
-      await moduleManager.initialize_module_manager();
-      
-      // MCP服务器初始化完成
-      
-      // 创建stdio传输
+      // 注意：存储模块和模块管理器的初始化已在app.ts中完成
+      // 这里只需要连接MCP传输层
+      logger.debug('连接MCP传输层');
       const transport = new StdioServerTransport();
-      
-      // 连接服务器和传输
       await this.server.connect(transport);
       
-      // MCP服务器启动成功，等待客户端连接
+      logger.info('MCP服务器启动成功');
     } catch (error) {
-      // MCP服务器启动失败
-      process.exit(1);
+      const errorMsg = `MCP服务器启动失败: ${error instanceof Error ? error.message : String(error)}`;
+      logger.error(errorMsg);
+      
+      // 如果是存储初始化失败，退出进程
+      if (error instanceof Error && error.message.includes('存储初始化失败')) {
+        process.exit(1);
+      }
+      
+      throw error;
     }
   }
 }
 
 // 如果直接运行此文件，则启动MCP服务器
 if (require.main === module) {
-  const mcpServer = new MCPServer();
-  mcpServer.start();
+  // 导入app模块来处理命令行参数和初始化
+  import('./app').then(async (app) => {
+    try {
+      // 解析命令行参数
+      const args = process.argv.slice(2);
+      let mode = 'mcp';
+      let dataPath = '.code-doc-mcp';
+      
+      // 解析命令行参数
+      for (let i = 0; i < args.length; i++) {
+        const arg = args[i];
+        if (arg === '--mode') {
+          mode = args[i + 1];
+          i++;
+        } else if (arg === '--data-path') {
+          dataPath = args[i + 1];
+          i++;
+        }
+      }
+      
+      // 如果不是MCP模式，退出
+      if (mode !== 'mcp') {
+        process.stderr.write('MCP服务器只能在mcp模式下运行\n');
+        process.exit(1);
+      }
+      
+      // 调用app.ts中的初始化逻辑
+      const { initializeApp } = await import('./app');
+      await initializeApp({ mode: 'mcp', dataPath });
+      
+      // 创建并启动MCP服务器
+      const mcpServer = new MCPServer();
+      await mcpServer.start();
+    } catch (error) {
+      process.stderr.write(`MCP服务器启动失败: ${error}\n`);
+      process.exit(1);
+    }
+  }).catch(error => {
+    process.stderr.write(`导入app模块失败: ${error}\n`);
+    process.exit(1);
+  });
 }
 
 export default MCPServer;
