@@ -124,34 +124,32 @@ app.get('/api/modules/search', (req: Request, res: Response) => {
       });
     }
     
+    // 处理分页参数
+    const offset = parseInt(req.query.offset as string) || 0;
+    const limit = parseInt(req.query.limit as string) || 20;
+    logger.debug(`分页参数: offset=${offset}, limit=${limit}`);
+    
     const query = {
       keyword: keyword,
-      type: req.query.type as 'class' | 'function' | 'variable' | 'file' | 'functionGroup'
+      type: req.query.type as 'class' | 'function' | 'variable' | 'file' | 'functionGroup',
+      offset: offset,
+      limit: limit
     };
     logger.debug(`搜索参数: ${JSON.stringify(query)}`);
     
     const result = humanInterface.search_modules(query);
     
-    // 处理分页参数
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-    logger.debug(`分页参数: page=${page}, limit=${limit}`);
-    
     if (result.success && result.data) {
-      const startIndex = (page - 1) * limit;
-      const endIndex = startIndex + limit;
-      const paginatedData = result.data.slice(startIndex, endIndex);
-      
-      logger.debug(`API响应: GET /api/modules/search - 成功，返回 ${paginatedData.length}/${result.data.length} 个结果`);
+      logger.debug(`API响应: GET /api/modules/search - 成功，返回 ${result.data.length} 个结果`);
       return res.json({
         success: true,
         message: result.message,
-        data: paginatedData,
+        data: result.data,
         pagination: {
-          page: page,
+          offset: offset,
           limit: limit,
-          total: result.data.length,
-          totalPages: Math.ceil(result.data.length / limit)
+          total: result.pagination?.total || 0,
+          totalPages: Math.ceil((result.pagination?.total || 0) / limit)
         }
       });
     }

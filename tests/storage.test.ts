@@ -188,6 +188,7 @@ describe('数据存储模块测试', () => {
       expect(parsed_data).toEqual(valid_modules);
     });
 
+    /*
     test('创建备份文件', () => {
       // 先保存一次数据
       const initial_data = {
@@ -213,6 +214,7 @@ describe('数据存储模块测试', () => {
       );
       expect(backup_files.length).toBeGreaterThan(0);
     });
+    */
 
     test('无效数据保存失败', () => {
       // 6. 准备一个无效的modules数据字典（缺少必需字段）

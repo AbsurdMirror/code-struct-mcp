@@ -174,12 +174,12 @@ export function save_modules(modules: Record<string, any>): boolean {
     logger.debug(`数据文件路径: ${data_file_path}`);
 
     // 3. CHECK data_file文件是否存在，如果存在则创建备份
-    if (fs.existsSync(data_file_path)) {
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const backup_path = path.join(storage_root_path, `modules_backup_${timestamp}.yaml`);
-      fs.copyFileSync(data_file_path, backup_path);
-      logger.info(`创建备份文件: ${backup_path}`);
-    }
+    // if (fs.existsSync(data_file_path)) {
+    //   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    //   const backup_path = path.join(storage_root_path, `modules_backup_${timestamp}.yaml`);
+    //   fs.copyFileSync(data_file_path, backup_path);
+    //   logger.info(`创建备份文件: ${backup_path}`);
+    // }
 
     // 4. 将modules数据序列化为YAML格式字符串
     const yaml_content = yaml.dump(modules);

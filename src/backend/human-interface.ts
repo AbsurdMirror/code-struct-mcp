@@ -4,8 +4,16 @@
  */
 
 import { Module, SearchCriteria } from './module-manager';
+import { APIResponse } from '../shared/types';
 import * as moduleManager from './module-manager';
-import { Logger } from './app';
+
+// 日志接口定义
+interface Logger {
+  info(message: string): void;
+  warn(message: string): void;
+  error(message: string): void;
+  debug(message: string): void;
+}
 
 // 人类交互接口的日志实例
 let humanInterfaceLogger: Logger | null = null;
@@ -36,13 +44,12 @@ function getLogger(): Logger {
 
 // 数据结构定义
 
-/**
- * API响应接口定义
- */
-export interface APIResponse<T = any> {
-  success: boolean;  // 操作是否成功
-  data?: T;         // 返回数据
-  message?: string; // 提示信息或错误详情
+// 参数接口定义（与module-manager.ts保持一致）
+export interface Parameter {
+  name: string;               // 参数名称
+  type: string;               // 参数类型
+  defaultValue?: string;      // 默认值
+  description?: string;       // 参数描述
 }
 
 /**
@@ -54,6 +61,24 @@ export interface ModuleRequest {
   description?: string; // 模块描述
   content?: string;     // 模块内容
   parent?: string;      // 父模块层次名称
+  
+  // function类型特定字段
+  parameters?: Parameter[];   // 函数参数列表
+  returnType?: string;        // 返回值类型
+  
+  // class类型特定字段
+  parentClass?: string;       // 父类名称
+  functions?: string[];       // 类中的函数列表
+  variables?: string[];       // 类中的变量列表
+  classes?: string[];         // 类中的嵌套类列表
+  
+  // variable类型特定字段
+  dataType?: string;          // 变量数据类型
+  initialValue?: string;      // 初始值
+  
+  // 通用字段
+  access?: 'public' | 'private' | 'protected'; // 访问权限
+  file?: string;              // 文件路径
 }
 
 /**
@@ -303,7 +328,13 @@ export function search_modules(query: SearchQuery): APIResponse<Module[]> {
     return {
       success: true,
       data: paginated_results,
-      message: successMsg
+      message: successMsg,
+      pagination: {
+        offset: offset,
+        limit: limit,
+        total: all_results.length,
+        totalPages: Math.ceil(all_results.length / limit)
+      }
     };
   } catch (error) {
     const errorMsg = `搜索模块失败: ${error instanceof Error ? error.message : String(error)}`;
@@ -353,14 +384,50 @@ export function add_module(module_data: ModuleRequest): APIResponse<Module> {
     }
     logger.debug(`构建层次名称: ${hierarchical_name}`);
 
-    // 构建模块对象
-    const module_obj: Module = {
+    // 构建模块对象，根据类型添加特定字段
+    const module_obj: any = {
       name: module_data.name,
       hierarchical_name: hierarchical_name,
       type: module_data.type,
       description: module_data.description || '',
       parent: module_data.parent
     };
+    
+    // 根据模块类型添加特定字段
+    if (module_data.type === 'function') {
+      if (module_data.parameters) {
+        module_obj.parameters = module_data.parameters;
+      }
+      if (module_data.returnType) {
+        module_obj.returnType = module_data.returnType;
+      }
+    } else if (module_data.type === 'class') {
+      if (module_data.parentClass) {
+        module_obj.parentClass = module_data.parentClass;
+      }
+      if (module_data.functions) {
+        module_obj.functions = module_data.functions;
+      }
+      if (module_data.variables) {
+        module_obj.variables = module_data.variables;
+      }
+      if (module_data.classes) {
+        module_obj.classes = module_data.classes;
+      }
+    } else if (module_data.type === 'variable') {
+      if (module_data.dataType) {
+        module_obj.dataType = module_data.dataType;
+      }
+      if (module_data.initialValue) {
+        module_obj.initialValue = module_data.initialValue;
+      }
+    }
+    
+    // 添加通用的access字段
+    if (module_data.access) {
+      module_obj.access = module_data.access;
+    }
+    
     logger.debug(`构建模块对象: ${JSON.stringify(module_obj)}`);
 
     // 调用MOD002.add_module添加模块
@@ -369,7 +436,7 @@ export function add_module(module_data: ModuleRequest): APIResponse<Module> {
     
     // 清理相关缓存
     Object.keys(request_cache).forEach(key => {
-      if (key.startsWith('root_modules') || key.startsWith('search')) {
+      if (key.startsWith('root_modules') || key.startsWith('search') || key.startsWith('children')) {
         delete request_cache[key];
       }
     });
@@ -465,13 +532,52 @@ export function update_module(hierarchical_name: string, update_data: Partial<Mo
     }
 
     // 构建更新对象（排除name和type字段）
-    const update_obj: Partial<Module> = {};
+    const update_obj: any = {};
     if (update_data.description !== undefined) {
       update_obj.description = update_data.description;
     }
     if (update_data.parent !== undefined) {
       update_obj.parent = update_data.parent;
     }
+    
+    // 获取现有模块以确定类型
+    const existing_module = existing_modules[0];
+    
+    // 根据模块类型处理特定字段
+    if (existing_module.type === 'function') {
+      if (update_data.parameters !== undefined) {
+        update_obj.parameters = update_data.parameters;
+      }
+      if (update_data.returnType !== undefined) {
+        update_obj.returnType = update_data.returnType;
+      }
+    } else if (existing_module.type === 'class') {
+      if (update_data.parentClass !== undefined) {
+        update_obj.parentClass = update_data.parentClass;
+      }
+      if (update_data.functions !== undefined) {
+        update_obj.functions = update_data.functions;
+      }
+      if (update_data.variables !== undefined) {
+        update_obj.variables = update_data.variables;
+      }
+      if (update_data.classes !== undefined) {
+        update_obj.classes = update_data.classes;
+      }
+    } else if (existing_module.type === 'variable') {
+      if (update_data.dataType !== undefined) {
+        update_obj.dataType = update_data.dataType;
+      }
+      if (update_data.initialValue !== undefined) {
+        update_obj.initialValue = update_data.initialValue;
+      }
+    }
+    
+    // 处理通用的access字段
+    if (update_data.access !== undefined) {
+      update_obj.access = update_data.access;
+    }
+    
     logger.debug(`构建更新对象: ${JSON.stringify(update_obj)}`);
 
     // 调用MOD002.update_module更新模块
@@ -480,7 +586,7 @@ export function update_module(hierarchical_name: string, update_data: Partial<Mo
     
     // 清理相关缓存
     Object.keys(request_cache).forEach(key => {
-      if (key.startsWith('root_modules') || key.startsWith('search')) {
+      if (key.startsWith('root_modules') || key.startsWith('search') || key.startsWith('children')) {
         delete request_cache[key];
       }
     });
@@ -517,7 +623,79 @@ export function update_module(hierarchical_name: string, update_data: Partial<Mo
 }
 
 /**
- * FUNC006. delete_module
+ * FUNC006. get_module_children
+ * 获取指定模块的子模块列表
+ */
+export function get_module_children(hierarchical_name: string): APIResponse<Module[]> {
+  const logger = getLogger();
+  logger.info(`开始获取模块子模块: ${hierarchical_name}`);
+  
+  try {
+    // 验证hierarchical_name格式
+    if (!validate_hierarchical_name(hierarchical_name)) {
+      const errorMsg = '无效的层次名称格式';
+      logger.warn(`${errorMsg}: ${hierarchical_name}`);
+      return {
+        success: false,
+        message: errorMsg
+      };
+    }
+    logger.debug(`层次名称格式验证通过: ${hierarchical_name}`);
+
+    // 检查缓存中是否存在子模块列表
+    const cache_key = generate_cache_key('children', { hierarchical_name });
+    const cached_result = get_cache(cache_key);
+    if (cached_result) {
+      logger.debug('从缓存中获取子模块列表');
+      return {
+        success: true,
+        data: cached_result,
+        message: '成功获取子模块列表（缓存）'
+      };
+    }
+    logger.debug('缓存中未找到子模块列表，从存储中查询');
+
+    // 调用MOD002.get_module_relationships获取模块关系
+    const relationships = moduleManager.get_module_relationships(hierarchical_name);
+    logger.debug(`获取到关系信息: ${JSON.stringify(relationships)}`);
+    
+    // 根据子模块名称获取完整的子模块信息
+    const children_modules: Module[] = [];
+    for (const child_name of relationships.children) {
+      const child_hierarchical_name = `${hierarchical_name}.${child_name}`;
+      const search_criteria: SearchCriteria = {
+        hierarchical_name: child_hierarchical_name
+      };
+      const child_modules = moduleManager.find_modules(search_criteria);
+      if (child_modules.length > 0) {
+        children_modules.push(child_modules[0]);
+      }
+    }
+    logger.debug(`获取到 ${children_modules.length} 个子模块`);
+    
+    // 缓存查询结果
+    set_cache(cache_key, children_modules);
+    logger.debug('子模块列表已缓存');
+    
+    const successMsg = `成功获取子模块列表，共 ${children_modules.length} 个子模块`;
+    logger.info(`${successMsg}: ${hierarchical_name}`);
+    return {
+      success: true,
+      data: children_modules,
+      message: successMsg
+    };
+  } catch (error) {
+    const errorMsg = `获取子模块列表失败: ${error instanceof Error ? error.message : String(error)}`;
+    logger.error(`${errorMsg} - ${hierarchical_name}`);
+    return {
+      success: false,
+      message: errorMsg
+    };
+  }
+}
+
+/**
+ * FUNC007. delete_module
  * 删除模块
  */
 export function delete_module(hierarchical_name: string): APIResponse<void> {
@@ -558,7 +736,7 @@ export function delete_module(hierarchical_name: string): APIResponse<void> {
     
     // 清理相关缓存
     Object.keys(request_cache).forEach(key => {
-      if (key.startsWith('root_modules') || key.startsWith('search')) {
+      if (key.startsWith('root_modules') || key.startsWith('search') || key.startsWith('children')) {
         delete request_cache[key];
       }
     });

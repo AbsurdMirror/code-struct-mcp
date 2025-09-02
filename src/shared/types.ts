@@ -3,6 +3,19 @@
  * 定义项目中各模块共用的接口和类型
  */
 
+// API响应接口定义
+export interface APIResponse<T = any> {
+  success: boolean;           // 操作是否成功
+  data?: T;                  // 响应数据
+  message?: string;          // 响应消息
+  pagination?: {
+    offset: number;          // 偏移量
+    limit: number;           // 每页数量
+    total: number;           // 总数量
+    totalPages: number;      // 总页数
+  };
+}
+
 // 参数接口定义
 export interface Parameter {
   name: string;           // 参数名称
