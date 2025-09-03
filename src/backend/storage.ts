@@ -248,6 +248,9 @@ export function validate_data(data: any): [boolean, string[]] {
       // CHECK type字段值是否在有效范围内
       if (!valid_types.includes(module_obj.type)) {
         errors.push(`模块 ${module_id} 的type字段值无效，必须是: ${valid_types.join(', ')} 中的一个`);
+      } else {
+        // 验证类型特定字段
+        validateTypeSpecificFields(module_obj, module_id, errors);
       }
     }
   }
@@ -255,6 +258,83 @@ export function validate_data(data: any): [boolean, string[]] {
   // 5. 返回验证结果
   const is_valid = errors.length === 0;
   return [is_valid, errors];
+}
+
+/**
+ * 验证类型特定字段
+ * @param module_obj 模块对象
+ * @param module_id 模块ID
+ * @param errors 错误数组
+ */
+function validateTypeSpecificFields(module_obj: Record<string, any>, module_id: string, errors: string[]): void {
+  const type = module_obj.type;
+  
+  switch (type) {
+  case 'class':
+    // class类型特定字段验证
+    if ('methods' in module_obj && !Array.isArray(module_obj.methods)) {
+      errors.push(`模块 ${module_id} 的methods字段必须是数组类型`);
+    }
+    if ('properties' in module_obj && !Array.isArray(module_obj.properties)) {
+      errors.push(`模块 ${module_id} 的properties字段必须是数组类型`);
+    }
+    if ('inheritance' in module_obj && typeof module_obj.inheritance !== 'string') {
+      errors.push(`模块 ${module_id} 的inheritance字段必须是字符串类型`);
+    }
+    break;
+      
+  case 'function':
+    // function类型特定字段验证
+    if ('parameters' in module_obj && !Array.isArray(module_obj.parameters)) {
+      errors.push(`模块 ${module_id} 的parameters字段必须是数组类型`);
+    }
+    if ('return_type' in module_obj && typeof module_obj.return_type !== 'string') {
+      errors.push(`模块 ${module_id} 的return_type字段必须是字符串类型`);
+    }
+    if ('class' in module_obj && typeof module_obj.class !== 'string') {
+      errors.push(`模块 ${module_id} 的class字段必须是字符串类型`);
+    }
+    break;
+      
+  case 'variable':
+    // variable类型特定字段验证
+    if ('data_type' in module_obj && typeof module_obj.data_type !== 'string') {
+      errors.push(`模块 ${module_id} 的data_type字段必须是字符串类型`);
+    }
+    if ('default_value' in module_obj && typeof module_obj.default_value !== 'string') {
+      errors.push(`模块 ${module_id} 的default_value字段必须是字符串类型`);
+    }
+    if ('class' in module_obj && typeof module_obj.class !== 'string') {
+      errors.push(`模块 ${module_id} 的class字段必须是字符串类型`);
+    }
+    break;
+      
+  case 'file':
+    // file类型特定字段验证
+    if ('size' in module_obj && typeof module_obj.size !== 'number') {
+      errors.push(`模块 ${module_id} 的size字段必须是数字类型`);
+    }
+    if ('encoding' in module_obj && typeof module_obj.encoding !== 'string') {
+      errors.push(`模块 ${module_id} 的encoding字段必须是字符串类型`);
+    }
+    if ('language' in module_obj && typeof module_obj.language !== 'string') {
+      errors.push(`模块 ${module_id} 的language字段必须是字符串类型`);
+    }
+    if ('last_modified' in module_obj && typeof module_obj.last_modified !== 'string') {
+      errors.push(`模块 ${module_id} 的last_modified字段必须是字符串类型`);
+    }
+    break;
+      
+  case 'functionGroup':
+    // functionGroup类型特定字段验证
+    if ('functions' in module_obj && !Array.isArray(module_obj.functions)) {
+      errors.push(`模块 ${module_id} 的functions字段必须是数组类型`);
+    }
+    if ('category' in module_obj && typeof module_obj.category !== 'string') {
+      errors.push(`模块 ${module_id} 的category字段必须是字符串类型`);
+    }
+    break;
+  }
 }
 
 /**

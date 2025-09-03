@@ -90,13 +90,16 @@ export const mcp_tools_registry: Record<string, {
     description: '添加新的代码模块到系统中',
     parameters: [
       { name: 'name', type: 'string', required: true, description: '模块名称' },
-      { name: 'type', type: 'string', required: true, description: '模块类型', enum: ['class', 'function', 'variable'] },
+      { name: 'type', type: 'string', required: true, description: '模块类型', enum: ['class', 'function', 'variable', 'file', 'functionGroup'] },
       { name: 'description', type: 'string', required: false, description: '模块描述' },
       { name: 'parent_module', type: 'string', required: false, description: '父模块名称' },
       { name: 'file_path', type: 'string', required: true, description: '文件路径' },
       { name: 'start_line', type: 'number', required: true, description: '起始行号', min: 1 },
       { name: 'end_line', type: 'number', required: true, description: '结束行号', min: 1 },
-      { name: 'access_level', type: 'string', required: false, description: '访问级别', enum: ['public', 'private', 'protected'], default: 'public' }
+      { name: 'access_level', type: 'string', required: false, description: '访问级别', enum: ['public', 'private', 'protected'], default: 'public' },
+      { name: 'class_name', type: 'string', required: false, description: '所属类名称（用于function和variable类型）' },
+      { name: 'path', type: 'string', required: false, description: '文件完整路径（用于file类型）' },
+      { name: 'functions', type: 'array', required: false, description: '函数列表（用于functionGroup和file类型）' }
     ],
     handler: async (params) => {
       // 生成层次化名称
@@ -132,7 +135,7 @@ export const mcp_tools_registry: Record<string, {
     description: '智能搜索代码模块',
     parameters: [
       { name: 'query', type: 'string', required: true, description: '搜索查询' },
-      { name: 'type', type: 'string', required: false, description: '模块类型过滤', enum: ['class', 'function', 'variable'] },
+      { name: 'type', type: 'string', required: false, description: '模块类型过滤', enum: ['class', 'function', 'variable', 'file', 'functionGroup'] },
       { name: 'limit', type: 'number', required: false, description: '结果数量限制', min: 1, max: 100, default: 10 }
     ],
     handler: async (params) => {

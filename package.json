@@ -7,10 +7,19 @@
     "check": "eslint src/**/*.ts tests/**/*.ts --fix && tsc --noEmit",
     "dev:api": "ts-node src/backend/app.ts --mode api --port 3000 --data-path ./data",
     "dev:mcp": "ts-node src/backend/app.ts --mode mcp --data-path ./data",
+    "dev:front": "cd src/frontend && npm run dev",
+    "dev:web": "node dev-start.js",
+    "dev:start": "node dev-start.js --frontend-port 5173 --backend-port 3000",
     "test": "npx jest --verbose --coverage --detectOpenHandles",
     "build": "tsc",
+    "build:front": "cd src/frontend && npm run build",
+    "build:all": "npm run build && npm run build:front",
+    "build:web": "node build.js",
     "start:api": "npm run build && node dist/backend/app.js --mode api --port 3000 --data-path ./data",
-    "start:mcp": "npm run build && node dist/backend/app.js --mode mcp --data-path ./data"
+    "start:mcp": "npm run build && node dist/backend/app.js --mode mcp --data-path ./data",
+    "start:front": "cd src/frontend && npm run preview",
+    "start:web": "node start-web.js",
+    "start": "node start-web.js --port 3000 --data-path ./data"
   },
   "keywords": [
     "mcp",
@@ -28,11 +37,13 @@
     "@types/supertest": "^6.0.3",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
+    "concurrently": "^9.2.1",
     "eslint": "^8.0.0",
     "jest": "^29.5.0",
     "supertest": "^7.1.4",
     "ts-jest": "^29.1.0",
     "ts-node": "^10.9.0",
+    "tsx": "^4.20.5",
     "typescript": "^5.0.0"
   },
   "dependencies": {

@@ -1,0 +1,318 @@
+/* 全局样式 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f5f5f5;
+  line-height: 1.6;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+  background-color: #f6f8fa;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+pre {
+  background-color: #f6f8fa;
+  border: 1px solid #e1e4e8;
+  border-radius: 6px;
+  padding: 16px;
+  overflow-x: auto;
+  font-size: 0.9em;
+  line-height: 1.45;
+}
+
+pre code {
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+}
+
+/* 响应式布局 */
+@media (max-width: 768px) {
+  .app-layout .ant-layout-sider {
+    position: fixed !important;
+    height: 100vh;
+    z-index: 1000;
+  }
+  
+  .app-layout .ant-layout-content {
+    margin-left: 0 !important;
+  }
+  
+  .module-detail-panel {
+    margin-top: 16px;
+  }
+  
+  .search-filters {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .search-filters .ant-input,
+  .search-filters .ant-select {
+    width: 100% !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-header {
+    padding: 0 16px;
+  }
+  
+  .app-content {
+    padding: 16px !important;
+  }
+  
+  .module-tree-container,
+  .module-detail-container {
+    padding: 12px;
+  }
+}
+
+/* 模块详情面板样式优化 */
+.module-detail-panel {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.module-detail-panel:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+/* 树形组件样式优化 */
+.ant-tree .ant-tree-node-content-wrapper {
+  transition: all 0.2s ease;
+}
+
+.ant-tree .ant-tree-node-content-wrapper:hover {
+  background-color: #f0f8ff;
+}
+
+.ant-tree .ant-tree-node-selected .ant-tree-node-content-wrapper {
+  background-color: #e6f7ff;
+  border-radius: 4px;
+}
+
+/* Markdown 内容样式 */
+.markdown-content {
+  line-height: 1.6;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+  margin-top: 24px;
+  margin-bottom: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.markdown-content h1 {
+  font-size: 2em;
+  border-bottom: 1px solid #eaecef;
+  padding-bottom: 0.3em;
+}
+
+.markdown-content h2 {
+  font-size: 1.5em;
+  border-bottom: 1px solid #eaecef;
+  padding-bottom: 0.3em;
+}
+
+.markdown-content p {
+  margin-bottom: 16px;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  margin-bottom: 16px;
+  padding-left: 2em;
+}
+
+.markdown-content li {
+  margin-bottom: 4px;
+}
+
+.markdown-content blockquote {
+  margin: 16px 0;
+  padding: 0 1em;
+  color: #6a737d;
+  border-left: 0.25em solid #dfe2e5;
+}
+
+.markdown-content table {
+  border-collapse: collapse;
+  margin: 16px 0;
+  width: 100%;
+}
+
+.markdown-content table th,
+.markdown-content table td {
+  border: 1px solid #dfe2e5;
+  padding: 6px 13px;
+}
+
+.markdown-content table th {
+  background-color: #f6f8fa;
+  font-weight: 600;
+}
+
+#root {
+  height: 100%;
+}
+
+/* 自定义滚动条样式 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* 布局样式 */
+.app-layout {
+  height: 100vh;
+}
+
+.app-header {
+  background: #001529;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.app-logo {
+  color: #fff;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.app-sider {
+  background: #fff;
+  box-shadow: 2px 0 6px rgba(0, 21, 41, 0.35);
+  overflow: hidden;
+}
+
+/* 修复折叠按钮溢出问题 */
+.app-sider .ant-layout-sider-trigger {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #001529;
+  color: #fff;
+  border: none;
+  height: 48px;
+  line-height: 48px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  z-index: 1;
+}
+
+.app-sider .ant-layout-sider-trigger:hover {
+  background: #1890ff;
+}
+
+/* 确保菜单不会被折叠按钮遮挡 */
+.app-sider .ant-menu {
+  padding-bottom: 48px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* 模块列表页面：右侧详情卡片统一高度与滚动 */
+.module-detail-card {
+  /* 占满内容区的剩余高度（ModuleListPage.Content 已有 padding） */
+  height: calc(100% - 0px);
+  display: flex;
+  flex-direction: column;
+}
+
+/* 让 Card 的 body 成为滚动容器，避免内容溢出卡片 */
+.module-detail-card .ant-card-body {
+  overflow: auto;
+  /* 减少内边距带来的可用高度损失 */
+  padding-right: 12px;
+}
+
+/* 约束描述信息区域，防止左右、下方向外溢出 */
+.module-description {
+  max-width: 100%;
+  overflow: auto;
+}
+
+/* ModuleListPage 的外层布局：让内部 Layout 刚好铺满视区高度，避免出现页面级滚动 */
+/* 调整 App.Content 内的滚动策略，由内部卡片滚动承载 */
+/* 还原并增强 app-content：保留间距与外观，允许内容滚动 */
+.app-content {
+  margin: 16px;
+  padding: 24px;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+  overflow: auto; /* 允许内容滚动 */
+}
+
+/* 追加：模块树侧栏样式，修复溢出并统一视觉（恢复） */
+.module-tree-sider {
+  background: #fff;
+  box-shadow: inset -1px 0 0 #f0f0f0;
+  overflow: hidden;
+}
+
+/* 让侧栏子元素形成可伸缩的纵向布局 */
+.module-tree-sider .ant-layout-sider-children {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* 树区域可滚动，底部留空避免与触发器/底部区域冲突 */
+.module-tree-sider .ant-layout-sider-children > div {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding-bottom: 8px;
+}
+
+/* 美化树行间距与字号 */
+.module-tree-sider .ant-tree {
+  --tree-indent: 16px;
+  font-size: 14px;
+}
+
+.module-tree-sider .ant-tree-treenode {
+  padding: 4px 0;
+}

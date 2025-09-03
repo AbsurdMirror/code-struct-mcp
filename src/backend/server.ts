@@ -3,8 +3,10 @@
  * 集成MOD005人类交互接口模块
  */
 
-import express, { Request, Response } from 'express';
-import cors from 'cors';
+import * as express from 'express';
+import { Request, Response } from 'express';
+import * as cors from 'cors';
+import * as path from 'path';
 import * as humanInterface from './human-interface';
 import * as moduleManager from './module-manager';
 import * as storage from './storage';
@@ -40,13 +42,29 @@ function getLogger(): Logger {
   };
 }
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+const app = express.default();
 
 // 中间件配置
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(cors.default());
+app.use(express.default.json());
+app.use(express.default.urlencoded({ extended: true }));
+
+// 静态文件服务配置 - 通过命令行参数配置
+let staticDir: string | null = null;
+
+/**
+ * 配置静态文件服务目录
+ * @param dir 静态文件目录路径
+ */
+export function setStaticDirectory(dir: string): void {
+  staticDir = dir;
+  const logger = getLogger();
+  logger.info(`配置静态文件服务目录: ${dir}`);
+  app.use(express.default.static(dir));
+}
+
+// API路由前缀
+const apiRouter = express.default.Router();
 
 // 错误处理中间件
 app.use((err: any, req: Request, res: Response, next: any) => {
@@ -201,6 +219,141 @@ app.get('/api/modules/get', (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/modules/:id - 获取指定模块信息（RESTful风格）
+ * 对应 FUNC002. get_module_by_hierarchical_name
+ */
+app.get('/api/modules/:id', (req: Request, res: Response) => {
+  const logger = getLogger();
+  const hierarchical_name = req.params.id;
+  logger.info(`API请求: GET /api/modules/${hierarchical_name}`);
+  
+  try {
+    if (!hierarchical_name) {
+      const errorMsg = '缺少必需的参数: id';
+      logger.warn(`API参数错误: GET /api/modules/:id - ${errorMsg}`);
+      return res.status(400).json({
+        success: false,
+        message: errorMsg,
+        data: null
+      });
+    }
+    const result = humanInterface.get_module_by_hierarchical_name(hierarchical_name);
+    logger.debug(`API响应: GET /api/modules/${hierarchical_name} - ${result.success ? '成功' : '失败'}`);
+    
+    if (result.success) {
+      return res.json(result);
+    } else {
+      // 如果模块不存在，返回404
+      if (result.message && (result.message.includes('未找到') || result.message.includes('不存在'))) {
+        return res.status(404).json(result);
+      } else {
+        return res.status(400).json(result);
+      }
+    }
+  } catch (error) {
+    const errorMsg = `API异常: GET /api/modules/${hierarchical_name} - ${error instanceof Error ? error.message : String(error)}`;
+    logger.error(errorMsg);
+    return res.status(500).json({
+      success: false,
+      message: '服务器内部错误',
+      data: null
+    });
+  }
+});
+
+/**
+ * PUT /api/modules/:id - 修改模块信息（RESTful风格）
+ * 对应 FUNC005. update_module
+ */
+app.put('/api/modules/:id', (req: Request, res: Response) => {
+  const logger = getLogger();
+  const hierarchical_name = req.params.id;
+  const updates = req.body;
+  logger.info(`API请求: PUT /api/modules/${hierarchical_name}`);
+  logger.debug(`更新数据: ${JSON.stringify(updates)}`);
+  
+  try {
+    if (!hierarchical_name) {
+      const errorMsg = '缺少必需的参数: id';
+      logger.warn(`API参数错误: PUT /api/modules/:id - ${errorMsg}`);
+      return res.status(400).json({
+        success: false,
+        message: errorMsg,
+        data: null
+      });
+    }
+    
+    if (!updates || Object.keys(updates).length === 0) {
+      const errorMsg = '更新数据不能为空';
+      logger.warn(`API参数错误: PUT /api/modules/${hierarchical_name} - ${errorMsg}`);
+      return res.status(400).json({
+        success: false,
+        message: errorMsg,
+        data: null
+      });
+    }
+    
+    const result = humanInterface.update_module(hierarchical_name, updates);
+    if (result.success) {
+      logger.debug(`API响应: PUT /api/modules/${hierarchical_name} - 成功更新模块`);
+      return res.json(result);
+    } else {
+      logger.warn(`API响应: PUT /api/modules/${hierarchical_name} - 失败: ${result.message}`);
+      // 根据错误类型返回不同状态码
+      if (result.message && (result.message.includes('未找到') || result.message.includes('不存在'))) {
+        return res.status(404).json(result);
+      } else if (result.message && result.message.includes('无效')) {
+        return res.status(400).json(result);
+      } else {
+        return res.status(400).json(result);
+      }
+    }
+  } catch (error) {
+    const errorMsg = `API异常: PUT /api/modules/${hierarchical_name} - ${error instanceof Error ? error.message : String(error)}`;
+    logger.error(errorMsg);
+    return res.status(500).json({
+      success: false,
+      message: '服务器内部错误',
+      data: null
+    });
+  }
+});
+
+/**
+ * GET /api/modules/:moduleId/children - 获取指定模块的子模块列表
+ * 对应 FUNC006. get_module_children
+ */
+app.get('/api/modules/:moduleId/children', (req: Request, res: Response) => {
+  const logger = getLogger();
+  const hierarchical_name = req.params.moduleId;
+  logger.info(`API请求: GET /api/modules/${hierarchical_name}/children`);
+  
+  try {
+    if (!hierarchical_name) {
+      const errorMsg = '缺少必需的参数: moduleId';
+      logger.warn(`API参数错误: GET /api/modules/:moduleId/children - ${errorMsg}`);
+      return res.status(400).json({
+        success: false,
+        message: errorMsg,
+        data: null
+      });
+    }
+    
+    const result = humanInterface.get_module_children(hierarchical_name);
+    logger.debug(`API响应: GET /api/modules/${hierarchical_name}/children - ${result.success ? '成功' : '失败'}`);
+    return res.json(result);
+  } catch (error) {
+    const errorMsg = `API异常: GET /api/modules/${hierarchical_name}/children - ${error instanceof Error ? error.message : String(error)}`;
+    logger.error(errorMsg);
+    return res.status(500).json({
+      success: false,
+      message: '服务器内部错误',
+      data: null
+    });
+  }
+});
+
+/**
  * POST /api/modules - 添加新模块
  * 对应 FUNC004. add_module
  */
@@ -340,6 +493,54 @@ app.delete('/api/modules/delete', (req: Request, res: Response) => {
   }
 });
 
+/**
+ * DELETE /api/modules/:id - 删除指定模块（RESTful风格）
+ * 对应 FUNC007. delete_module
+ */
+app.delete('/api/modules/:id', (req: Request, res: Response) => {
+  const logger = getLogger();
+  const hierarchical_name = req.params.id;
+  logger.info(`API请求: DELETE /api/modules/${hierarchical_name}`);
+  
+  try {
+    if (!hierarchical_name) {
+      const errorMsg = '缺少必需的参数: id';
+      logger.warn(`API参数错误: DELETE /api/modules/:id - ${errorMsg}`);
+      return res.status(400).json({
+        success: false,
+        message: errorMsg,
+        data: null
+      });
+    }
+    
+    const result = humanInterface.delete_module(hierarchical_name);
+    logger.debug(`API响应: DELETE /api/modules/${hierarchical_name} - ${result.success ? '成功' : '失败'}`);
+    
+    if (result.success) {
+      logger.info(`API响应: DELETE /api/modules/${hierarchical_name} - 成功删除模块`);
+      return res.json(result);
+    } else {
+      logger.warn(`API响应: DELETE /api/modules/${hierarchical_name} - 失败: ${result.message}`);
+      // 根据错误类型返回不同状态码
+      if (result.message && (result.message.includes('子模块') || result.message.includes('引用') || result.message.includes('依赖'))) {
+        return res.status(400).json(result);
+      } else if (result.message && (result.message.includes('未找到') || result.message.includes('不存在'))) {
+        return res.status(404).json(result);
+      } else {
+        return res.status(400).json(result);
+      }
+    }
+  } catch (error) {
+    const errorMsg = `API异常: DELETE /api/modules/${hierarchical_name} - ${error instanceof Error ? error.message : String(error)}`;
+    logger.error(errorMsg);
+    return res.status(500).json({
+      success: false,
+      message: '服务器内部错误',
+      data: null
+    });
+  }
+});
+
 // 健康检查接口
 app.get('/health', (req: Request, res: Response) => {
   const logger = getLogger();
@@ -360,18 +561,20 @@ app.use((req: Request, res: Response) => {
 });
 
 // 启动服务器
-export async function start_server(port?: number): Promise<void> {
+export async function start_server(port: number = 3000): Promise<void> {
   const logger = getLogger();
-  const serverPort = port || PORT;
   
   try {
-    logger.info(`开始启动Express服务器，端口: ${serverPort}`);
+    logger.info(`开始启动Express服务器，端口: ${port}`);
     await initialize_server();
     
-    app.listen(serverPort, () => {
-      logger.info(`Express服务器启动成功，监听端口: ${serverPort}`);
-      logger.info(`健康检查接口: http://localhost:${serverPort}/health`);
-      logger.info(`API接口前缀: http://localhost:${serverPort}/api`);
+    app.listen(port, () => {
+      logger.info(`Express服务器启动成功，监听端口: ${port}`);
+      logger.info(`健康检查接口: http://localhost:${port}/health`);
+      logger.info(`API接口前缀: http://localhost:${port}/api`);
+      if (staticDir) {
+        logger.info(`静态文件服务: http://localhost:${port}/ -> ${staticDir}`);
+      }
     });
   } catch (error) {
     const errorMsg = `Express服务器启动失败: ${error instanceof Error ? error.message : String(error)}`;

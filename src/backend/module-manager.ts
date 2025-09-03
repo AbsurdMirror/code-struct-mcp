@@ -68,6 +68,7 @@ export interface FunctionModule extends Module {
   parameters: Parameter[];    // 函数参数列表
   returnType: string;         // 返回值类型
   access?: 'public' | 'private' | 'protected'; // 访问权限
+  class?: string;             // 所属类的hierarchical_name（如果是类成员函数）
 }
 
 // 变量模块扩展接口
@@ -76,6 +77,22 @@ export interface VariableModule extends Module {
   dataType: string;           // 变量数据类型
   initialValue?: string;      // 初始值
   access?: 'public' | 'private' | 'protected'; // 访问权限
+  class?: string;             // 所属类的hierarchical_name（如果是类成员变量）
+}
+
+// 文件模块扩展接口
+export interface FileModule extends Module {
+  type: 'file';
+  path: string;               // 文件完整路径
+  classes?: string[];         // 文件中定义的类列表
+  functions?: string[];       // 文件中定义的函数列表
+  variables?: string[];       // 文件中定义的变量列表
+}
+
+// 函数组模块扩展接口
+export interface FunctionGroupModule extends Module {
+  type: 'functionGroup';
+  functions: string[];        // 函数组中包含的函数列表
 }
 
 // 搜索条件接口定义

@@ -13,9 +13,11 @@ import * as storage from './storage';
  * 命令行参数接口
  */
 interface AppConfig {
-  mode: 'api' | 'mcp';  // 运行模式：API模式或MCP模式
+  mode: 'api' | 'mcp' | 'production';  // 运行模式：API模式、MCP模式或生产模式
   port?: number;        // API模式下的端口号
   dataPath: string;     // 数据存储目录路径
+  staticDir?: string;   // 静态文件目录路径（生产模式）
+  logFile?: string;     // 日志文件路径（可选）
 }
 
 /**
@@ -34,15 +36,22 @@ export interface Logger {
 class FileLogger implements Logger {
   private logFilePath: string;
 
-  constructor(logDir: string) {
-    // 确保日志目录存在
-    if (!fs.existsSync(logDir)) {
-      fs.mkdirSync(logDir, { recursive: true });
+  constructor(logDirOrFile: string, isFilePath: boolean = false) {
+    if (isFilePath) {
+      // 直接使用指定的文件路径
+      this.logFilePath = logDirOrFile;
+      const logDir = path.dirname(logDirOrFile);
+      if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir, { recursive: true });
+      }
+    } else {
+      // 使用目录路径，生成按日期的日志文件
+      if (!fs.existsSync(logDirOrFile)) {
+        fs.mkdirSync(logDirOrFile, { recursive: true });
+      }
+      const today = new Date().toISOString().split('T')[0];
+      this.logFilePath = path.join(logDirOrFile, `app-${today}.log`);
     }
-    
-    // 生成日志文件名（按日期）
-    const today = new Date().toISOString().split('T')[0];
-    this.logFilePath = path.join(logDir, `app-${today}.log`);
   }
 
   private writeLog(level: string, message: string): void {
@@ -99,11 +108,11 @@ function parseCommandLineArgs(): AppConfig {
     switch (arg) {
     case '--mode': {
       const mode = args[i + 1];
-      if (mode === 'api' || mode === 'mcp') {
+      if (mode === 'api' || mode === 'mcp' || mode === 'production') {
         config.mode = mode;
         i++; // 跳过下一个参数
       } else {
-        throw new Error('无效的mode参数，必须是api或mcp');
+        throw new Error('无效的mode参数，必须是api、mcp或production');
       }
       break;
     }
@@ -128,6 +137,26 @@ function parseCommandLineArgs(): AppConfig {
       break;
     }
         
+    case '--static-dir': {
+      const staticDir = args[i + 1];
+      if (!staticDir) {
+        throw new Error('static-dir参数不能为空');
+      }
+      config.staticDir = path.resolve(staticDir);
+      i++; // 跳过下一个参数
+      break;
+    }
+        
+    case '--log-file': {
+      const logFile = args[i + 1];
+      if (!logFile) {
+        throw new Error('log-file参数不能为空');
+      }
+      config.logFile = path.resolve(logFile);
+      i++; // 跳过下一个参数
+      break;
+    }
+        
     default: {
       if (arg.startsWith('--')) {
         throw new Error(`未知的参数: ${arg}`);
@@ -146,9 +175,14 @@ function parseCommandLineArgs(): AppConfig {
     throw new Error('缺少必需参数: --data-path');
   }
   
-  if (config.mode === 'api' && !config.port) {
-    // API模式下，如果没有指定端口，使用默认端口3000
+  if ((config.mode === 'api' || config.mode === 'production') && !config.port) {
+    // API模式或生产模式下，如果没有指定端口，使用默认端口3000
     config.port = 3000;
+  }
+  
+  if (config.mode === 'production' && !config.staticDir) {
+    // 生产模式下，如果没有指定静态文件目录，使用默认目录
+    config.staticDir = path.join(__dirname, '../../frontend/dist');
   }
 
   return config as AppConfig;
@@ -159,13 +193,26 @@ function parseCommandLineArgs(): AppConfig {
  */
 async function initializeApp(config: AppConfig): Promise<void> {
   // 1. 初始化日志模块
-  globalLogger = new FileLogger(config.dataPath);
+  if (config.logFile) {
+    globalLogger = new FileLogger(config.logFile, true);
+  } else {
+    globalLogger = new FileLogger(config.dataPath, false);
+  }
+  
   globalLogger.info('应用启动开始');
   globalLogger.info(`运行模式: ${config.mode}`);
   globalLogger.info(`数据路径: ${config.dataPath}`);
   
   if (config.port) {
     globalLogger.info(`API端口: ${config.port}`);
+  }
+  
+  if (config.staticDir) {
+    globalLogger.info(`静态文件目录: ${config.staticDir}`);
+  }
+  
+  if (config.logFile) {
+    globalLogger.info(`日志文件: ${config.logFile}`);
   }
 
   // 2. 初始化存储模块
@@ -211,14 +258,17 @@ async function initializeApp(config: AppConfig): Promise<void> {
 /**
  * 启动API服务器
  */
-async function startApiServer(port: number): Promise<void> {
+async function startApiServer(port: number, staticDir?: string): Promise<void> {
   globalLogger.info(`启动API服务器，端口: ${port}`);
   
-  // 设置环境变量供server.ts使用
-  process.env.PORT = port.toString();
-  
   try {
-    await start_server();
+    // 如果指定了静态文件目录，配置静态文件服务
+    if (staticDir) {
+      const { setStaticDirectory } = await import('./server');
+      setStaticDirectory(staticDir);
+    }
+    
+    await start_server(port);
     globalLogger.info('API服务器启动成功');
   } catch (error) {
     globalLogger.error(`API服务器启动失败: ${error instanceof Error ? error.message : String(error)}`);
@@ -256,6 +306,8 @@ async function main(): Promise<void> {
     // 根据模式启动相应的服务器
     if (config.mode === 'api') {
       await startApiServer(config.port!);
+    } else if (config.mode === 'production') {
+      await startApiServer(config.port!, config.staticDir);
     } else if (config.mode === 'mcp') {
       await startMcpServer();
     }

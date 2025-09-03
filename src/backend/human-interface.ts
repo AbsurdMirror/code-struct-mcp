@@ -65,6 +65,7 @@ export interface ModuleRequest {
   // function类型特定字段
   parameters?: Parameter[];   // 函数参数列表
   returnType?: string;        // 返回值类型
+  class?: string;             // 所属类的hierarchical_name（如果是类成员函数）
   
   // class类型特定字段
   parentClass?: string;       // 父类名称
@@ -76,9 +77,16 @@ export interface ModuleRequest {
   dataType?: string;          // 变量数据类型
   initialValue?: string;      // 初始值
   
+  // file类型特定字段
+  path?: string;              // 文件完整路径
+  // 注意：file的classes、functions、variables字段与class类型字段重复，使用相同字段
+  
+  // functionGroup类型特定字段
+  // 注意：functionGroup的functions字段与class的functions字段重复，使用相同字段
+  
   // 通用字段
   access?: 'public' | 'private' | 'protected'; // 访问权限
-  file?: string;              // 文件路径
+  file?: string;              // 所属文件路径
 }
 
 /**
@@ -164,7 +172,7 @@ export function clear_cache(): void {
  * FUNC001. get_root_modules
  * 获取根模块列表
  */
-export function get_root_modules(): APIResponse<Module[]> {
+export function get_root_modules(): APIResponse<(Module & { hasChildren: boolean })[]> {
   const logger = getLogger();
   logger.info('开始获取根模块列表');
   
@@ -191,15 +199,25 @@ export function get_root_modules(): APIResponse<Module[]> {
     const root_modules = all_modules.filter(module => !module.parent);
     logger.debug(`筛选出 ${root_modules.length} 个根模块`);
     
+    // 为每个根模块添加hasChildren字段
+    const root_modules_with_children = root_modules.map(module => {
+      // 检查是否有子模块
+      const hasChildren = all_modules.some(child => child.parent === module.hierarchical_name);
+      return {
+        ...module,
+        hasChildren
+      };
+    });
+    
     // 缓存查询结果
-    set_cache(cache_key, root_modules);
+    set_cache(cache_key, root_modules_with_children);
     logger.debug('根模块列表已缓存');
     
     const successMsg = '成功获取根模块列表';
     logger.info(successMsg);
     return {
       success: true,
-      data: root_modules,
+      data: root_modules_with_children,
       message: successMsg
     };
   } catch (error) {
