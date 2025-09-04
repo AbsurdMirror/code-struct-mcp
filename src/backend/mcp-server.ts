@@ -328,7 +328,7 @@ class MCPServer {
 
     logger.debug(`构造的模块数据: ${JSON.stringify(moduleData)}`);
     // 调用人类接口模块
-    const result = humanInterface.add_module(moduleData);
+    const result = await humanInterface.add_module(moduleData);
     logger.debug(`add_module调用结果: ${result.success ? '成功' : '失败'}`);
     if (!result.success) {
       logger.warn(`add_module失败: ${result.message}`);
@@ -360,7 +360,7 @@ class MCPServer {
       );
     }
 
-    const result = humanInterface.get_module_by_hierarchical_name(args.hierarchical_name);
+    const result = await humanInterface.get_module_by_hierarchical_name(args.hierarchical_name);
     logger.debug(`get_module_by_name调用结果: ${result.success ? '成功' : '失败'}`);
     if (!result.success) {
       logger.warn(`get_module_by_name失败: ${result.message}`);
@@ -387,7 +387,7 @@ class MCPServer {
     if (args.keyword || args.name) {
       // 使用人类接口的搜索功能
       logger.debug(`使用人类接口搜索: ${args.keyword || args.name}`);
-      const result = humanInterface.search_modules({
+      const result = await humanInterface.search_modules({
         keyword: args.keyword || args.name,
         type: args.type,
         limit: limit
@@ -411,7 +411,7 @@ class MCPServer {
     } else {
       // 使用模块管理器的查找功能
       logger.debug('使用模块管理器查找所有模块');
-      const modules = moduleManager.find_modules({});
+      const modules = await moduleManager.find_modules({});
       const limitedModules = modules.slice(0, limit);
       
       logger.debug(`模块管理器查找到${modules.length}个模块，返回前${limitedModules.length}个`);

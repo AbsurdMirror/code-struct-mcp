@@ -101,13 +101,7 @@ export interface SearchQuery {
 
 // 变量列表
 
-/**
- * VAR001. request_cache
- * 请求缓存，存储常用查询结果以提高响应速度
- */
-const request_cache: Record<string, any> = {};
-
-// 辅助函数
+// 函数列表
 
 /**
  * 验证层次名称格式
@@ -126,73 +120,17 @@ function validate_hierarchical_name(hierarchical_name: string): boolean {
 }
 
 /**
- * 生成缓存键
- */
-function generate_cache_key(prefix: string, params: any): string {
-  return `${prefix}_${JSON.stringify(params)}`;
-}
-
-/**
- * 设置缓存
- */
-function set_cache(key: string, value: any, ttl: number = 300000): void { // 默认5分钟TTL
-  request_cache[key] = {
-    value,
-    expires: Date.now() + ttl
-  };
-}
-
-/**
- * 获取缓存
- */
-function get_cache(key: string): any {
-  const cached = request_cache[key];
-  if (cached && cached.expires > Date.now()) {
-    return cached.value;
-  }
-  // 清理过期缓存
-  if (cached) {
-    delete request_cache[key];
-  }
-  return null;
-}
-
-/**
- * 清理所有缓存（仅用于测试）
- */
-export function clear_cache(): void {
-  Object.keys(request_cache).forEach(key => {
-    delete request_cache[key];
-  });
-}
-
-// 函数列表
-
-/**
  * FUNC001. get_root_modules
  * 获取根模块列表
  */
-export function get_root_modules(): APIResponse<(Module & { hasChildren: boolean })[]> {
+export async function get_root_modules(): Promise<APIResponse<(Module & { hasChildren: boolean })[]>> {
   const logger = getLogger();
   logger.info('开始获取根模块列表');
   
   try {
-    // 检查缓存中是否存在根模块列表
-    const cache_key = generate_cache_key('root_modules', {});
-    const cached_result = get_cache(cache_key);
-    if (cached_result) {
-      logger.debug('从缓存中获取根模块列表');
-      return {
-        success: true,
-        data: cached_result,
-        message: '成功获取根模块列表（缓存）'
-      };
-    }
-    logger.debug('缓存中未找到根模块列表，从存储中查询');
-
     // 调用MOD002.find_modules查询parent为空的模块
     const search_criteria: SearchCriteria = {};
-    const all_modules = moduleManager.find_modules(search_criteria);
+    const all_modules = await moduleManager.find_modules(search_criteria);
     logger.debug(`查询到 ${all_modules.length} 个模块`);
     
     // 筛选根模块（parent为空）
@@ -208,10 +146,6 @@ export function get_root_modules(): APIResponse<(Module & { hasChildren: boolean
         hasChildren
       };
     });
-    
-    // 缓存查询结果
-    set_cache(cache_key, root_modules_with_children);
-    logger.debug('根模块列表已缓存');
     
     const successMsg = '成功获取根模块列表';
     logger.info(successMsg);
@@ -234,7 +168,7 @@ export function get_root_modules(): APIResponse<(Module & { hasChildren: boolean
  * FUNC002. get_module_by_hierarchical_name
  * 按层次名称获取模块信息
  */
-export function get_module_by_hierarchical_name(hierarchical_name: string): APIResponse<Module> {
+export async function get_module_by_hierarchical_name(hierarchical_name: string): Promise<APIResponse<Module>> {
   const logger = getLogger();
   logger.info(`开始获取模块信息: ${hierarchical_name}`);
   
@@ -254,7 +188,7 @@ export function get_module_by_hierarchical_name(hierarchical_name: string): APIR
     const search_criteria: SearchCriteria = {
       hierarchical_name: hierarchical_name
     };
-    const modules = moduleManager.find_modules(search_criteria);
+    const modules = await moduleManager.find_modules(search_criteria);
     logger.debug(`查询结果: 找到 ${modules.length} 个匹配的模块`);
     
     // 如果模块不存在：返回404错误
@@ -289,7 +223,7 @@ export function get_module_by_hierarchical_name(hierarchical_name: string): APIR
  * FUNC003. search_modules
  * 关键词搜索模块
  */
-export function search_modules(query: SearchQuery): APIResponse<Module[]> {
+export async function search_modules(query: SearchQuery): Promise<APIResponse<Module[]>> {
   const logger = getLogger();
   logger.info(`开始搜索模块: ${JSON.stringify(query)}`);
   
@@ -309,18 +243,7 @@ export function search_modules(query: SearchQuery): APIResponse<Module[]> {
     const offset = query.offset || 0;
     logger.debug(`搜索参数: keyword=${query.keyword}, type=${query.type}, limit=${limit}, offset=${offset}`);
     
-    // 检查缓存中是否存在搜索结果
-    const cache_key = generate_cache_key('search', { keyword: query.keyword, type: query.type, limit, offset });
-    const cached_result = get_cache(cache_key);
-    if (cached_result) {
-      logger.debug('从缓存中获取搜索结果');
-      return {
-        success: true,
-        data: cached_result,
-        message: '搜索完成（缓存）'
-      };
-    }
-    logger.debug('缓存中未找到搜索结果，执行新搜索');
+
 
     // 构建SearchCriteria对象
     const search_criteria: SearchCriteria = {
@@ -330,16 +253,14 @@ export function search_modules(query: SearchQuery): APIResponse<Module[]> {
     logger.debug(`构建搜索条件: ${JSON.stringify(search_criteria)}`);
     
     // 调用MOD002.find_modules传入SearchCriteria执行搜索
-    const all_results = moduleManager.find_modules(search_criteria);
+    const all_results = await moduleManager.find_modules(search_criteria);
     logger.debug(`搜索到 ${all_results.length} 个匹配结果`);
     
     // 应用limit和offset分页
     const paginated_results = all_results.slice(offset, offset + limit);
     logger.debug(`分页处理: 返回 ${paginated_results.length} 个结果`);
     
-    // 缓存搜索结果
-    set_cache(cache_key, paginated_results);
-    logger.debug('搜索结果已缓存');
+
     
     const successMsg = `搜索完成，找到 ${all_results.length} 个结果，返回 ${paginated_results.length} 个`;
     logger.info(successMsg);
@@ -368,7 +289,7 @@ export function search_modules(query: SearchQuery): APIResponse<Module[]> {
  * FUNC004. add_module
  * 添加新模块
  */
-export function add_module(module_data: ModuleRequest): APIResponse<Module> {
+export async function add_module(module_data: ModuleRequest): Promise<APIResponse<Module>> {
   const logger = getLogger();
   logger.info(`开始添加模块: ${module_data.name}`);
   
@@ -449,16 +370,10 @@ export function add_module(module_data: ModuleRequest): APIResponse<Module> {
     logger.debug(`构建模块对象: ${JSON.stringify(module_obj)}`);
 
     // 调用MOD002.add_module添加模块
-    const result = moduleManager.add_module(module_obj);
+    const result = await moduleManager.add_module(module_obj);
     logger.debug(`模块管理器返回结果: ${JSON.stringify(result)}`);
     
-    // 清理相关缓存
-    Object.keys(request_cache).forEach(key => {
-      if (key.startsWith('root_modules') || key.startsWith('search') || key.startsWith('children')) {
-        delete request_cache[key];
-      }
-    });
-    logger.debug('相关缓存已清理');
+
     
     if (!result.success) {
       logger.error(`添加模块失败: ${result.message}`);
@@ -470,7 +385,8 @@ export function add_module(module_data: ModuleRequest): APIResponse<Module> {
     }
     
     // 获取添加的模块数据
-    const added_module = moduleManager.find_modules({ hierarchical_name: module_obj.hierarchical_name })[0];
+    const added_modules = await moduleManager.find_modules({ hierarchical_name: module_obj.hierarchical_name });
+    const added_module = added_modules[0];
     logger.debug(`获取添加的模块数据: ${JSON.stringify(added_module)}`);
     
     const successMsg = '模块添加成功';
@@ -506,7 +422,7 @@ export function add_module(module_data: ModuleRequest): APIResponse<Module> {
  * FUNC005. update_module
  * 修改模块信息
  */
-export function update_module(hierarchical_name: string, update_data: Partial<ModuleRequest>): APIResponse<Module> {
+export async function update_module(hierarchical_name: string, update_data: Partial<ModuleRequest>): Promise<APIResponse<Module>> {
   const logger = getLogger();
   logger.info(`开始更新模块: ${hierarchical_name}`);
   
@@ -537,7 +453,7 @@ export function update_module(hierarchical_name: string, update_data: Partial<Mo
     const search_criteria: SearchCriteria = {
       hierarchical_name: hierarchical_name
     };
-    const existing_modules = moduleManager.find_modules(search_criteria);
+    const existing_modules = await moduleManager.find_modules(search_criteria);
     logger.debug(`查询现有模块: 找到 ${existing_modules.length} 个匹配的模块`);
     
     if (existing_modules.length === 0) {
@@ -599,16 +515,10 @@ export function update_module(hierarchical_name: string, update_data: Partial<Mo
     logger.debug(`构建更新对象: ${JSON.stringify(update_obj)}`);
 
     // 调用MOD002.update_module更新模块
-    const result = moduleManager.update_module(hierarchical_name, update_obj);
+    const result = await moduleManager.update_module(hierarchical_name, update_obj);
     logger.debug(`模块管理器返回结果: ${JSON.stringify(result)}`);
     
-    // 清理相关缓存
-    Object.keys(request_cache).forEach(key => {
-      if (key.startsWith('root_modules') || key.startsWith('search') || key.startsWith('children')) {
-        delete request_cache[key];
-      }
-    });
-    logger.debug('相关缓存已清理');
+
     
     if (!result.success) {
       logger.error(`更新模块失败: ${result.message}`);
@@ -620,7 +530,8 @@ export function update_module(hierarchical_name: string, update_data: Partial<Mo
     }
     
     // 获取更新后的模块数据
-    const updated_module = moduleManager.find_modules({ hierarchical_name: hierarchical_name })[0];
+    const updated_modules = await moduleManager.find_modules({ hierarchical_name: hierarchical_name });
+    const updated_module = updated_modules[0];
     logger.debug(`获取更新后的模块数据: ${JSON.stringify(updated_module)}`);
     
     const successMsg = '模块更新成功';
@@ -644,7 +555,7 @@ export function update_module(hierarchical_name: string, update_data: Partial<Mo
  * FUNC006. get_module_children
  * 获取指定模块的子模块列表
  */
-export function get_module_children(hierarchical_name: string): APIResponse<Module[]> {
+export async function get_module_children(hierarchical_name: string): Promise<APIResponse<Module[]>> {
   const logger = getLogger();
   logger.info(`开始获取模块子模块: ${hierarchical_name}`);
   
@@ -660,21 +571,10 @@ export function get_module_children(hierarchical_name: string): APIResponse<Modu
     }
     logger.debug(`层次名称格式验证通过: ${hierarchical_name}`);
 
-    // 检查缓存中是否存在子模块列表
-    const cache_key = generate_cache_key('children', { hierarchical_name });
-    const cached_result = get_cache(cache_key);
-    if (cached_result) {
-      logger.debug('从缓存中获取子模块列表');
-      return {
-        success: true,
-        data: cached_result,
-        message: '成功获取子模块列表（缓存）'
-      };
-    }
-    logger.debug('缓存中未找到子模块列表，从存储中查询');
+
 
     // 调用MOD002.get_module_relationships获取模块关系
-    const relationships = moduleManager.get_module_relationships(hierarchical_name);
+    const relationships = await moduleManager.get_module_relationships(hierarchical_name);
     logger.debug(`获取到关系信息: ${JSON.stringify(relationships)}`);
     
     // 根据子模块名称获取完整的子模块信息
@@ -684,16 +584,14 @@ export function get_module_children(hierarchical_name: string): APIResponse<Modu
       const search_criteria: SearchCriteria = {
         hierarchical_name: child_hierarchical_name
       };
-      const child_modules = moduleManager.find_modules(search_criteria);
+      const child_modules = await moduleManager.find_modules(search_criteria);
       if (child_modules.length > 0) {
         children_modules.push(child_modules[0]);
       }
     }
     logger.debug(`获取到 ${children_modules.length} 个子模块`);
     
-    // 缓存查询结果
-    set_cache(cache_key, children_modules);
-    logger.debug('子模块列表已缓存');
+
     
     const successMsg = `成功获取子模块列表，共 ${children_modules.length} 个子模块`;
     logger.info(`${successMsg}: ${hierarchical_name}`);
@@ -716,7 +614,7 @@ export function get_module_children(hierarchical_name: string): APIResponse<Modu
  * FUNC007. delete_module
  * 删除模块
  */
-export function delete_module(hierarchical_name: string): APIResponse<void> {
+export async function delete_module(hierarchical_name: string): Promise<APIResponse<void>> {
   const logger = getLogger();
   logger.info(`开始删除模块: ${hierarchical_name}`);
   
@@ -736,7 +634,7 @@ export function delete_module(hierarchical_name: string): APIResponse<void> {
     const search_criteria: SearchCriteria = {
       hierarchical_name: hierarchical_name
     };
-    const existing_modules = moduleManager.find_modules(search_criteria);
+    const existing_modules = await moduleManager.find_modules(search_criteria);
     logger.debug(`查询现有模块: 找到 ${existing_modules.length} 个匹配的模块`);
     
     if (existing_modules.length === 0) {
@@ -749,16 +647,10 @@ export function delete_module(hierarchical_name: string): APIResponse<void> {
     }
 
     // 调用MOD002.delete_module删除模块
-    const result = moduleManager.delete_module(hierarchical_name);
+    const result = await moduleManager.delete_module(hierarchical_name);
     logger.debug(`模块管理器返回结果: ${JSON.stringify(result)}`);
     
-    // 清理相关缓存
-    Object.keys(request_cache).forEach(key => {
-      if (key.startsWith('root_modules') || key.startsWith('search') || key.startsWith('children')) {
-        delete request_cache[key];
-      }
-    });
-    logger.debug('相关缓存已清理');
+
     
     if (!result.success) {
       logger.error(`删除模块失败: ${result.message}`);

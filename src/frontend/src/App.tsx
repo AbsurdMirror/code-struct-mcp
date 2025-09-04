@@ -56,16 +56,7 @@ const AppLayout: React.FC = () => {
 
   return (
     <Layout className="app-layout">
-      {/* 顶部导航栏 */}
-      <Header className="app-header">
-        <div className="app-logo">
-          代码结构管理系统
-        </div>
-        <div style={{ color: '#fff' }}>
-          MCP项目 - 前端可视化控制台
-        </div>
-      </Header>
-      
+
       <Layout>
         {/* 左侧菜单栏 */}
         <Sider
@@ -76,6 +67,13 @@ const AppLayout: React.FC = () => {
           width={250}
           theme="light"
         >
+          {/* 顶部导航栏 */}
+          <Header className="app-header">
+            <div className="app-logo">
+              CodeStruct
+            </div>
+          </Header>
+
           <Menu
             mode="inline"
             selectedKeys={getSelectedKey()}
@@ -84,9 +82,9 @@ const AppLayout: React.FC = () => {
             onClick={({ key }) => navigate(key)}
           />
         </Sider>
-        
+
         {/* 右侧内容区 */}
-        <Layout style={{ padding: '0 24px 24px' }}>
+        <Layout style={{ padding: '0 24px 0px' }}>
           <Content
             className="app-content"
             style={{

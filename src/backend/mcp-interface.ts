@@ -126,7 +126,7 @@ export const mcp_tools_registry: Record<string, {
       { name: 'name', type: 'string', required: true, description: '模块名称' }
     ],
     handler: async (params) => {
-      const modules = find_modules({ hierarchical_name: params.name });
+      const modules = await find_modules({ hierarchical_name: params.name });
       return modules.length > 0 ? modules[0] : null;
     }
   },
@@ -139,7 +139,7 @@ export const mcp_tools_registry: Record<string, {
       { name: 'limit', type: 'number', required: false, description: '结果数量限制', min: 1, max: 100, default: 10 }
     ],
     handler: async (params) => {
-      const search_results = find_modules(params);
+      const search_results = await find_modules(params);
       return search_results.map(module => ({
         hierarchical_name: module.hierarchical_name,
         name: module.name,

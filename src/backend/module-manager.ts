@@ -1,5 +1,8 @@
-import { load_modules, save_modules, initialize_storage } from './storage';
+import { load_modules, save_modules, initialize_storage, get_storage_root_path } from './storage';
 import { Logger } from './app';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as yaml from 'js-yaml';
 
 /**
  * 模块管理模块
@@ -9,6 +12,11 @@ import { Logger } from './app';
 
 // 模块管理器的日志实例
 let moduleManagerLogger: Logger | null = null;
+
+// 时间戳管理变量
+let server_timestamp = 0;
+let storage_path = '';
+const TIMESTAMP_FILE_NAME = 'sync_timestamp.yaml';
 
 /**
  * 设置模块管理器的日志实例
@@ -32,6 +40,64 @@ function getLogger(): Logger {
     error: () => {},
     debug: () => {}
   };
+}
+
+/**
+ * 检查数据新鲜度，如果数据过期则重新加载
+ */
+async function checkDataFreshness(): Promise<void> {
+  const logger = getLogger();
+  try {
+    const timestampFile = path.join(storage_path, TIMESTAMP_FILE_NAME);
+    
+    if (!fs.existsSync(timestampFile)) {
+      // 时间戳文件不存在，创建初始文件
+      const initialTimestamp = Date.now();
+      const timestampData = { last_operation_time: initialTimestamp };
+      fs.writeFileSync(timestampFile, yaml.dump(timestampData));
+      server_timestamp = initialTimestamp;
+      logger.debug('创建初始时间戳文件');
+      return;
+    }
+    
+    const fileContent = fs.readFileSync(timestampFile, 'utf8');
+    const timestampData = yaml.load(fileContent) as { last_operation_time: number };
+    const globalTimestamp = timestampData?.last_operation_time || 0;
+    
+    logger.debug(`时间对比: ${globalTimestamp}, ${server_timestamp}`);
+    if (globalTimestamp !== server_timestamp) {
+      // 数据过期，重新加载
+      logger.debug('检测到数据过期，重新加载模块缓存');
+      const loaded_data = load_modules();
+      if (loaded_data && loaded_data.modules) {
+        modules_cache = loaded_data.modules;
+        rebuild_relationships();
+        logger.info(`重新加载了 ${Object.keys(modules_cache).length} 个模块到缓存`);
+      }
+      server_timestamp = globalTimestamp;
+    }
+  } catch (error) {
+    logger.error(`检查数据新鲜度时出错: ${error}`);
+    // 出错时继续使用现有缓存
+  }
+}
+
+/**
+ * 更新时间戳
+ */
+async function updateTimestamp(): Promise<void> {
+  const logger = getLogger();
+  try {
+    const timestampFile = path.join(storage_path, TIMESTAMP_FILE_NAME);
+    const newTimestamp = Date.now();
+    const timestampData = { last_operation_time: newTimestamp };
+    
+    fs.writeFileSync(timestampFile, yaml.dump(timestampData));
+    server_timestamp = newTimestamp;
+    logger.debug('更新时间戳成功');
+  } catch (error) {
+    logger.error(`更新时间戳时出错: ${error}`);
+  }
 }
 
 // 参数接口定义
@@ -128,6 +194,9 @@ export function initialize_module_manager(): void {
   const logger = getLogger();
   logger.info('开始初始化模块管理器');
   
+  // 初始化存储路径
+  storage_path = get_storage_root_path();
+  
   // 加载现有模块数据（存储环境应该已经在外部初始化）
   const loaded_data = load_modules();
   if (loaded_data && loaded_data.modules) {
@@ -140,6 +209,21 @@ export function initialize_module_manager(): void {
     logger.debug('模块关系映射重建完成');
   } else {
     logger.info('未找到现有模块数据，使用空缓存');
+  }
+  
+  // 初始化服务器时间戳
+  const timestampFile = path.join(storage_path, TIMESTAMP_FILE_NAME);
+  if (fs.existsSync(timestampFile)) {
+    try {
+      const fileContent = fs.readFileSync(timestampFile, 'utf8');
+      const timestampData = yaml.load(fileContent) as { last_operation_time: number };
+      server_timestamp = timestampData?.last_operation_time || Date.now();
+    } catch (error) {
+      logger.warn(`读取时间戳文件失败: ${error}`);
+      server_timestamp = Date.now();
+    }
+  } else {
+    server_timestamp = Date.now();
   }
   
   logger.info('模块管理器初始化完成');
@@ -256,9 +340,12 @@ function check_circular_reference(hierarchical_name: string, parent?: string): b
  * @param module 模块数据对象
  * @returns 操作结果
  */
-export function add_module(module: Module): { success: boolean; message: string } {
+export async function add_module(module: Module): Promise<{ success: boolean; message: string }> {
   const logger = getLogger();
   logger.info(`开始添加模块: ${module.hierarchical_name}`);
+  
+  // 检查数据新鲜度
+  await checkDataFreshness();
   
   try {
     // 1. CHECK module.name格式
@@ -406,7 +493,10 @@ export function add_module(module: Module): { success: boolean; message: string 
     }
     logger.debug('模块数据已保存到存储');
     
-    // 12. 返回成功结果
+    // 12. 更新时间戳
+    await updateTimestamp();
+    
+    // 13. 返回成功结果
     const successMsg = '模块添加成功';
     logger.info(`${successMsg}: ${module.hierarchical_name}`);
     return {
@@ -428,8 +518,10 @@ export function add_module(module: Module): { success: boolean; message: string 
  * @param criteria 查询条件对象
  * @returns 匹配的模块列表
  */
-export function find_modules(criteria: SearchCriteria): Module[] {
+export async function find_modules(criteria: SearchCriteria): Promise<Module[]> {
   try {
+    // 检查数据新鲜度
+    await checkDataFreshness();
     // 1. 初始化结果数组
     const result: Module[] = [];
     
@@ -477,9 +569,12 @@ export function find_modules(criteria: SearchCriteria): Module[] {
  * @param updates 要更新的字段和值
  * @returns 操作结果
  */
-export function update_module(hierarchical_name: string, updates: Partial<Module>): { success: boolean; message: string } {
+export async function update_module(hierarchical_name: string, updates: Partial<Module>): Promise<{ success: boolean; message: string }> {
   const logger = getLogger();
   logger.info(`开始更新模块: ${hierarchical_name}`);
+  
+  // 检查数据新鲜度
+  await checkDataFreshness();
   
   try {
     // 1. CHECK hierarchical_name是否在modules_cache中
@@ -583,7 +678,10 @@ export function update_module(hierarchical_name: string, updates: Partial<Module
     }
     logger.debug('模块数据已保存到存储');
     
-    // 9. 返回成功结果
+    // 9. 更新时间戳
+    await updateTimestamp();
+    
+    // 10. 返回成功结果
     const successMsg = '模块更新成功';
     logger.info(successMsg);
     return {
@@ -605,8 +703,10 @@ export function update_module(hierarchical_name: string, updates: Partial<Module
  * @param hierarchical_name 要删除的模块hierarchical_name
  * @returns 操作结果
  */
-export function delete_module(hierarchical_name: string): { success: boolean; message: string } {
+export async function delete_module(hierarchical_name: string): Promise<{ success: boolean; message: string }> {
   try {
+    // 检查数据新鲜度
+    await checkDataFreshness();
     // 1. CHECK hierarchical_name是否在modules_cache中
     if (!modules_cache[hierarchical_name]) {
       return {
@@ -657,7 +757,10 @@ export function delete_module(hierarchical_name: string): { success: boolean; me
       };
     }
     
-    // 7. 返回成功结果
+    // 7. 更新时间戳
+    await updateTimestamp();
+    
+    // 8. 返回成功结果
     return {
       success: true,
       message: '模块删除成功'
@@ -684,7 +787,10 @@ export function get_module_types(): Array<'class' | 'function' | 'variable' | 'f
  * @param hierarchical_name 模块hierarchical_name
  * @returns 模块关系信息
  */
-export function get_module_relationships(hierarchical_name: string): ModuleRelationship {
+export async function get_module_relationships(hierarchical_name: string): Promise<ModuleRelationship> {
+  // 检查数据新鲜度
+  await checkDataFreshness();
+  
   // 1. CHECK hierarchical_name是否在modules_cache中
   if (!modules_cache[hierarchical_name]) {
     return {

@@ -7,19 +7,13 @@
     "check": "eslint src/**/*.ts tests/**/*.ts --fix && tsc --noEmit",
     "dev:api": "ts-node src/backend/app.ts --mode api --port 3000 --data-path ./data",
     "dev:mcp": "ts-node src/backend/app.ts --mode mcp --data-path ./data",
-    "dev:front": "cd src/frontend && npm run dev",
     "dev:web": "node dev-start.js",
-    "dev:start": "node dev-start.js --frontend-port 5173 --backend-port 3000",
-    "test": "npx jest --verbose --coverage --detectOpenHandles",
+    "test": "jest --verbose --coverage --detectOpenHandles",
     "build": "tsc",
-    "build:front": "cd src/frontend && npm run build",
-    "build:all": "npm run build && npm run build:front",
-    "build:web": "node build.js",
+    "build:web": "npm run build && node build.js",
     "start:api": "npm run build && node dist/backend/app.js --mode api --port 3000 --data-path ./data",
     "start:mcp": "npm run build && node dist/backend/app.js --mode mcp --data-path ./data",
-    "start:front": "cd src/frontend && npm run preview",
-    "start:web": "node start-web.js",
-    "start": "node start-web.js --port 3000 --data-path ./data"
+    "start:web": "npm run build:web && node start-web.js"
   },
   "keywords": [
     "mcp",

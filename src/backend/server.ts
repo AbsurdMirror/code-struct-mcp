@@ -102,12 +102,12 @@ async function initialize_server(): Promise<void> {
  * GET /api/modules - 获取根模块列表
  * 对应 FUNC001. get_root_modules
  */
-app.get('/api/modules', (req: Request, res: Response) => {
+app.get('/api/modules', async (req: Request, res: Response) => {
   const logger = getLogger();
   logger.info('API请求: GET /api/modules');
   
   try {
-    const result = humanInterface.get_root_modules();
+    const result = await humanInterface.get_root_modules();
     logger.debug(`API响应: GET /api/modules - ${result.success ? '成功' : '失败'}`);
     return res.json(result);
   } catch (error) {
@@ -125,7 +125,7 @@ app.get('/api/modules', (req: Request, res: Response) => {
  * GET /api/modules/search - 关键词搜索模块
  * 对应 FUNC003. search_modules
  */
-app.get('/api/modules/search', (req: Request, res: Response) => {
+app.get('/api/modules/search', async (req: Request, res: Response) => {
   const logger = getLogger();
   const keyword = req.query.keyword as string;
   logger.info(`API请求: GET /api/modules/search - keyword: ${keyword}`);
@@ -155,7 +155,7 @@ app.get('/api/modules/search', (req: Request, res: Response) => {
     };
     logger.debug(`搜索参数: ${JSON.stringify(query)}`);
     
-    const result = humanInterface.search_modules(query);
+    const result = await humanInterface.search_modules(query);
     
     if (result.success && result.data) {
       logger.debug(`API响应: GET /api/modules/search - 成功，返回 ${result.data.length} 个结果`);
@@ -189,7 +189,7 @@ app.get('/api/modules/search', (req: Request, res: Response) => {
  * GET /api/modules/get?name={hierarchical_name} - 按层次名称获取模块信息
  * 对应 FUNC002. get_module_by_hierarchical_name
  */
-app.get('/api/modules/get', (req: Request, res: Response) => {
+app.get('/api/modules/get', async (req: Request, res: Response) => {
   const logger = getLogger();
   const hierarchical_name = req.query.name as string;
   logger.info(`API请求: GET /api/modules/get - name: ${hierarchical_name}`);
@@ -204,7 +204,7 @@ app.get('/api/modules/get', (req: Request, res: Response) => {
         data: null
       });
     }
-    const result = humanInterface.get_module_by_hierarchical_name(hierarchical_name);
+    const result = await humanInterface.get_module_by_hierarchical_name(hierarchical_name);
     logger.debug(`API响应: GET /api/modules/get - ${result.success ? '成功' : '失败'}`);
     return res.json(result);
   } catch (error) {
@@ -222,7 +222,7 @@ app.get('/api/modules/get', (req: Request, res: Response) => {
  * GET /api/modules/:id - 获取指定模块信息（RESTful风格）
  * 对应 FUNC002. get_module_by_hierarchical_name
  */
-app.get('/api/modules/:id', (req: Request, res: Response) => {
+app.get('/api/modules/:id', async (req: Request, res: Response) => {
   const logger = getLogger();
   const hierarchical_name = req.params.id;
   logger.info(`API请求: GET /api/modules/${hierarchical_name}`);
@@ -237,7 +237,7 @@ app.get('/api/modules/:id', (req: Request, res: Response) => {
         data: null
       });
     }
-    const result = humanInterface.get_module_by_hierarchical_name(hierarchical_name);
+    const result = await humanInterface.get_module_by_hierarchical_name(hierarchical_name);
     logger.debug(`API响应: GET /api/modules/${hierarchical_name} - ${result.success ? '成功' : '失败'}`);
     
     if (result.success) {
@@ -265,7 +265,7 @@ app.get('/api/modules/:id', (req: Request, res: Response) => {
  * PUT /api/modules/:id - 修改模块信息（RESTful风格）
  * 对应 FUNC005. update_module
  */
-app.put('/api/modules/:id', (req: Request, res: Response) => {
+app.put('/api/modules/:id', async (req: Request, res: Response) => {
   const logger = getLogger();
   const hierarchical_name = req.params.id;
   const updates = req.body;
@@ -293,7 +293,7 @@ app.put('/api/modules/:id', (req: Request, res: Response) => {
       });
     }
     
-    const result = humanInterface.update_module(hierarchical_name, updates);
+    const result = await humanInterface.update_module(hierarchical_name, updates);
     if (result.success) {
       logger.debug(`API响应: PUT /api/modules/${hierarchical_name} - 成功更新模块`);
       return res.json(result);
@@ -323,7 +323,7 @@ app.put('/api/modules/:id', (req: Request, res: Response) => {
  * GET /api/modules/:moduleId/children - 获取指定模块的子模块列表
  * 对应 FUNC006. get_module_children
  */
-app.get('/api/modules/:moduleId/children', (req: Request, res: Response) => {
+app.get('/api/modules/:moduleId/children', async (req: Request, res: Response) => {
   const logger = getLogger();
   const hierarchical_name = req.params.moduleId;
   logger.info(`API请求: GET /api/modules/${hierarchical_name}/children`);
@@ -339,7 +339,7 @@ app.get('/api/modules/:moduleId/children', (req: Request, res: Response) => {
       });
     }
     
-    const result = humanInterface.get_module_children(hierarchical_name);
+    const result = await humanInterface.get_module_children(hierarchical_name);
     logger.debug(`API响应: GET /api/modules/${hierarchical_name}/children - ${result.success ? '成功' : '失败'}`);
     return res.json(result);
   } catch (error) {
@@ -357,14 +357,14 @@ app.get('/api/modules/:moduleId/children', (req: Request, res: Response) => {
  * POST /api/modules - 添加新模块
  * 对应 FUNC004. add_module
  */
-app.post('/api/modules', (req: Request, res: Response) => {
+app.post('/api/modules', async (req: Request, res: Response) => {
   const logger = getLogger();
   const module_data = req.body;
   logger.info(`API请求: POST /api/modules - name: ${module_data?.name}`);
   logger.debug(`请求数据: ${JSON.stringify(module_data)}`);
   
   try {
-    const result = humanInterface.add_module(module_data);
+    const result = await humanInterface.add_module(module_data);
     if (result.success) {
       logger.debug('API响应: POST /api/modules - 成功创建模块');
       return res.status(201).json(result);
@@ -394,7 +394,7 @@ app.post('/api/modules', (req: Request, res: Response) => {
  * PUT /api/modules/update - 修改模块信息
  * 对应 FUNC005. update_module
  */
-app.put('/api/modules/update', (req: Request, res: Response) => {
+app.put('/api/modules/update', async (req: Request, res: Response) => {
   const logger = getLogger();
   const hierarchical_name = req.query.name as string;
   const updates = req.body;
@@ -421,7 +421,7 @@ app.put('/api/modules/update', (req: Request, res: Response) => {
         data: null
       });
     }
-    const result = humanInterface.update_module(hierarchical_name, updates);
+    const result = await humanInterface.update_module(hierarchical_name, updates);
     if (result.success) {
       logger.debug('API响应: PUT /api/modules/update - 成功更新模块');
       return res.json(result);
@@ -451,7 +451,7 @@ app.put('/api/modules/update', (req: Request, res: Response) => {
  * DELETE /api/modules/delete?name={hierarchical_name} - 删除模块
  * 对应 FUNC006. delete_module
  */
-app.delete('/api/modules/delete', (req: Request, res: Response) => {
+app.delete('/api/modules/delete', async (req: Request, res: Response) => {
   const logger = getLogger();
   const hierarchical_name = req.query.name as string;
   logger.info(`API请求: DELETE /api/modules/delete - name: ${hierarchical_name}`);
@@ -466,7 +466,7 @@ app.delete('/api/modules/delete', (req: Request, res: Response) => {
         data: null
       });
     }
-    const result = humanInterface.delete_module(hierarchical_name);
+    const result = await humanInterface.delete_module(hierarchical_name);
     
     if (result.success) {
       logger.debug('API响应: DELETE /api/modules/delete - 成功删除模块');
@@ -497,7 +497,7 @@ app.delete('/api/modules/delete', (req: Request, res: Response) => {
  * DELETE /api/modules/:id - 删除指定模块（RESTful风格）
  * 对应 FUNC007. delete_module
  */
-app.delete('/api/modules/:id', (req: Request, res: Response) => {
+app.delete('/api/modules/:id', async (req: Request, res: Response) => {
   const logger = getLogger();
   const hierarchical_name = req.params.id;
   logger.info(`API请求: DELETE /api/modules/${hierarchical_name}`);
@@ -513,7 +513,7 @@ app.delete('/api/modules/:id', (req: Request, res: Response) => {
       });
     }
     
-    const result = humanInterface.delete_module(hierarchical_name);
+    const result = await humanInterface.delete_module(hierarchical_name);
     logger.debug(`API响应: DELETE /api/modules/${hierarchical_name} - ${result.success ? '成功' : '失败'}`);
     
     if (result.success) {
@@ -568,18 +568,27 @@ export async function start_server(port: number = 3000): Promise<void> {
     logger.info(`开始启动Express服务器，端口: ${port}`);
     await initialize_server();
     
-    app.listen(port, () => {
-      logger.info(`Express服务器启动成功，监听端口: ${port}`);
-      logger.info(`健康检查接口: http://localhost:${port}/health`);
-      logger.info(`API接口前缀: http://localhost:${port}/api`);
-      if (staticDir) {
-        logger.info(`静态文件服务: http://localhost:${port}/ -> ${staticDir}`);
-      }
+    return new Promise<void>((resolve, reject) => {
+      const server = app.listen(port, () => {
+        logger.info(`Express服务器启动成功，监听端口: ${port}`);
+        logger.info(`健康检查接口: http://localhost:${port}/health`);
+        logger.info(`API接口前缀: http://localhost:${port}/api`);
+        if (staticDir) {
+          logger.info(`静态文件服务: http://localhost:${port}/ -> ${staticDir}`);
+        }
+        resolve();
+      });
+      
+      server.on('error', (error) => {
+        const errorMsg = `Express服务器启动失败: ${error.message}`;
+        logger.error(errorMsg);
+        reject(error);
+      });
     });
   } catch (error) {
     const errorMsg = `Express服务器启动失败: ${error instanceof Error ? error.message : String(error)}`;
     logger.error(errorMsg);
-    process.exit(1);
+    throw error;
   }
 }
 

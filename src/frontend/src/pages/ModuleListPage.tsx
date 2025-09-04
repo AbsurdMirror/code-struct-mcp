@@ -5,9 +5,7 @@ import {
   message,
   Row,
   Col,
-  Layout,
-  Input,
-  Select
+  Layout
 } from 'antd';
 import {
   ReloadOutlined,
@@ -131,29 +129,27 @@ const ModuleListPage: React.FC = () => {
   const filteredModules = modules;
 
   return (
-    <div style={{ padding: '24px', height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ padding: '5px', height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* 顶部工具栏 */}
-      <Card style={{ marginBottom: '16px' }}>
-        <Row justify="end" gutter={12}>
-          <Col>
-            <Button
-              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-              onClick={() => setCollapsed(!collapsed)}
-            >
-              {collapsed ? '展开导航' : '折叠导航'}
-            </Button>
-          </Col>
-          <Col>
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={handleRefresh}
-              loading={loading}
-            >
-              刷新
-            </Button>
-          </Col>
-        </Row>
-      </Card>
+      <Row justify="end" gutter={12}>
+        <Col>
+          <Button
+            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            onClick={() => setCollapsed(!collapsed)}
+          >
+            {collapsed ? '展开导航' : '折叠导航'}
+          </Button>
+        </Col>
+        <Col>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={handleRefresh}
+            loading={loading}
+          >
+            刷新
+          </Button>
+        </Col>
+      </Row>
 
       {/* 主要内容区域 */}
       <Layout style={{ flex: '1 1 0', minHeight: 0, backgroundColor: '#fff' }}>
