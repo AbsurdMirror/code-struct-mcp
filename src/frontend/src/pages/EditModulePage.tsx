@@ -367,8 +367,7 @@ const EditModulePage: React.FC = () => {
                   label="模块描述"
                   name="description"
                   rules={[
-                    { required: true, message: '请输入模块描述' },
-                    { max: 500, message: '描述不能超过500个字符' }
+                    { required: true, message: '请输入模块描述' }
                   ]}
                 >
                   <TextArea 
