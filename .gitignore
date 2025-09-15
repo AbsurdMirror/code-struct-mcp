@@ -1,6 +1,3 @@
 node_modules/
 dist/
-data*
 coverage/
-.code-doc-mcp/
-test_integration_data/
