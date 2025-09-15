@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Card,
   Button,
   message,
   Row,
@@ -21,12 +20,12 @@ const { Sider, Content } = Layout;
 
 // 删除 props，模块列表默认展示全部模块
 const ModuleListPage: React.FC = () => {
-  const [modules, setModules] = useState<Module[]>([]);
+  const [, setModules] = useState<Module[]>([]);
   const [allModules, setAllModules] = useState<Module[]>([]); // 存储所有已加载的模块
   const [loading, setLoading] = useState(true);
   const [selectedModule, setSelectedModule] = useState<Module | null>(null);
   const [collapsed, setCollapsed] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
   const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([]);
   const [loadingChildren, setLoadingChildren] = useState<Set<string>>(new Set());
 
@@ -126,7 +125,6 @@ const ModuleListPage: React.FC = () => {
   };
 
   // 默认展示所有模块
-  const filteredModules = modules;
 
   return (
     <div style={{ padding: '5px', height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -171,7 +169,7 @@ const ModuleListPage: React.FC = () => {
               onSelect={handleTreeSelect}
               onExpand={handleTreeExpand}
               expandedKeys={expandedKeys}
-              loadingChildren={loadingChildren}
+
             />
           </div>
         </Sider>

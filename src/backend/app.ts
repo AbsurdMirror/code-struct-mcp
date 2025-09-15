@@ -182,7 +182,7 @@ function parseCommandLineArgs(): AppConfig {
   
   if (config.mode === 'production' && !config.staticDir) {
     // 生产模式下，如果没有指定静态文件目录，使用默认目录
-    config.staticDir = path.join(__dirname, '../../frontend/dist');
+    config.staticDir = path.join(__dirname, '../frontend/dist');
   }
 
   return config as AppConfig;
@@ -262,8 +262,10 @@ async function startApiServer(port: number, staticDir?: string): Promise<void> {
   globalLogger.info(`启动API服务器，端口: ${port}`);
   
   try {
-    // 如果指定了静态文件目录，配置静态文件服务
+    // 如果指定了静态文件目录，必须在启动服务器之前配置静态文件服务
+    // 这样静态文件中间件才能在API路由之前生效
     if (staticDir) {
+      globalLogger.info(`配置静态文件服务: ${staticDir}`);
       const { setStaticDirectory } = await import('./server');
       setStaticDirectory(staticDir);
     }

@@ -10,7 +10,7 @@ import {
   GroupOutlined
 } from '@ant-design/icons';
 import type { DataNode } from 'antd/es/tree';
-import type { Module, ClassModule } from '../types';
+import type { Module } from '../types';
 
 interface ModuleTreeProps {
   modules: Module[];
@@ -18,7 +18,6 @@ interface ModuleTreeProps {
   selectedKeys?: React.Key[];
   expandedKeys?: React.Key[];
   onExpand?: (expandedKeys: React.Key[], info: any) => void;
-  loadingChildren?: Set<string>;
 }
 
 interface TreeNodeData extends DataNode {
@@ -31,8 +30,7 @@ const ModuleTree: React.FC<ModuleTreeProps> = ({
   onSelect,
   selectedKeys = [],
   expandedKeys,
-  onExpand,
-  loadingChildren = new Set()
+  onExpand
 }) => {
   const [internalExpandedKeys, setInternalExpandedKeys] = useState<React.Key[]>([]);
   

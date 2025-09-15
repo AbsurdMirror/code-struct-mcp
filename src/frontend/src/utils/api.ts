@@ -176,7 +176,6 @@ export class ApiService {
    */
   async getModuleByHierarchicalName(hierarchicalName: string): Promise<APIResponse<Module>> {
     // URL编码层次名称，处理特殊字符
-    const encodedName = encodeURIComponent(hierarchicalName);
     return this.get<Module>('/modules/get', { name: hierarchicalName });
   }
 
@@ -204,8 +203,7 @@ export class ApiService {
    */
   async getModuleChildren(hierarchicalName: string): Promise<APIResponse<Module[]>> {
     // URL编码层次名称，处理特殊字符
-    const encodedName = encodeURIComponent(hierarchicalName);
-    return this.get<Module[]>(`/modules/${encodedName}/children`);
+    return this.get<Module[]>(`/modules/${encodeURIComponent(hierarchicalName)}/children`);
   }
 
   /**

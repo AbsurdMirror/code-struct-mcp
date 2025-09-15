@@ -5,8 +5,7 @@ import type { MenuProps } from 'antd';
 import {
   SearchOutlined,
   PlusOutlined,
-  DatabaseOutlined,
-  EditOutlined
+  DatabaseOutlined
 } from '@ant-design/icons';
 
 import ModuleListPage from './pages/ModuleListPage';

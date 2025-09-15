@@ -20,7 +20,6 @@ import type { Module } from '../types';
 
 const { Option } = Select;
 const { TextArea } = Input;
-const { Step } = Steps;
 
 // 后端Parameter接口定义
 interface Parameter {

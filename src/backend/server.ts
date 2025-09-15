@@ -3,10 +3,10 @@
  * 集成MOD005人类交互接口模块
  */
 
-import * as express from 'express';
-import { Request, Response } from 'express';
-import * as cors from 'cors';
+import express, { Request, Response } from 'express';
+import cors from 'cors';
 import * as path from 'path';
+import * as mime from 'mime-types';
 import * as humanInterface from './human-interface';
 import * as moduleManager from './module-manager';
 import * as storage from './storage';
@@ -42,15 +42,16 @@ function getLogger(): Logger {
   };
 }
 
-const app = express.default();
+const app = express();
 
 // 中间件配置
-app.use(cors.default());
-app.use(express.default.json());
-app.use(express.default.urlencoded({ extended: true }));
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // 静态文件服务配置 - 通过命令行参数配置
 let staticDir: string | null = null;
+let staticMiddlewareConfigured = false;
 
 /**
  * 配置静态文件服务目录
@@ -60,23 +61,103 @@ export function setStaticDirectory(dir: string): void {
   staticDir = dir;
   const logger = getLogger();
   logger.info(`配置静态文件服务目录: ${dir}`);
-  app.use(express.default.static(dir));
+  
+  // 如果已经配置过静态中间件，不要重复配置
+  if (staticMiddlewareConfigured) {
+    logger.warn('静态文件中间件已配置，跳过重复配置');
+    return;
+  }
+  
+  // 1. 静态文件服务必须在API路由之前配置
+  app.use('/', express.static(dir, {
+    // 设置静态文件选项
+    setHeaders: (res: Response, filePath: string) => {
+      const ext = path.extname(filePath);
+      let mimeType = mime.lookup(ext);
+      
+      // 特别处理JavaScript模块文件
+      if (ext === '.js') {
+        mimeType = 'application/javascript; charset=utf-8';
+      } else if (ext === '.css') {
+        mimeType = 'text/css; charset=utf-8';
+      } else if (ext === '.html') {
+        mimeType = 'text/html; charset=utf-8';
+      }
+      
+      if (mimeType) {
+        res.setHeader('Content-Type', mimeType);
+        logger.debug(`设置静态文件MIME类型: ${filePath} -> ${mimeType}`);
+      }
+    }
+  }));
+  
+  staticMiddlewareConfigured = true;
+  logger.info('静态文件中间件配置完成');
+  
+  // 2. 在静态文件中间件配置完成后，设置API路由
+  setupRoutes();
+  
+  // 3. SPA fallback路由 - 处理前端路由，必须在404处理之前
+  app.use((req: Request, res: Response, next: any) => {
+    // 如果是API请求，跳过此处理
+    if (req.originalUrl.startsWith('/api/') || req.originalUrl === '/health') {
+      return next();
+    }
+    
+    // 只处理GET请求
+    if (req.method !== 'GET') {
+      return next();
+    }
+    
+    // 跳过静态资源文件（有文件扩展名的请求）
+    const ext = path.extname(req.originalUrl);
+    if (ext) {
+      // 有扩展名的请求，应该已经被静态文件中间件处理了
+      // 如果到了这里说明文件不存在，继续到404处理
+      return next();
+    }
+    
+    // 如果配置了静态文件目录，返回index.html
+    if (staticDir) {
+      const indexPath = path.join(staticDir, 'index.html');
+      logger.debug(`SPA fallback: ${req.originalUrl} -> ${indexPath}`);
+      return res.sendFile(indexPath);
+    }
+    
+    // 如果没有配置静态文件目录，继续到404处理
+    next();
+  });
+  
+  // 4. 错误处理中间件 - 必须在所有路由之后，404处理之前
+  app.use((err: any, req: Request, res: Response, next: any) => {
+    const errorMsg = `服务器内部错误: ${err instanceof Error ? err.message : String(err)}`;
+    logger.error(`${errorMsg} - ${req.method} ${req.originalUrl}`);
+    
+    res.status(500).json({
+      success: false,
+      message: '服务器内部错误'
+    });
+  });
+  
+  // 5. 404处理 - 必须在最后
+  app.use((req: Request, res: Response) => {
+    logger.debug(`404处理: ${req.method} ${req.originalUrl}`);
+    res.status(404).json({
+      success: false,
+      message: `接口不存在: ${req.method} ${req.originalUrl}`
+    });
+  });
+  
+  logger.info('所有中间件配置完成');
 }
 
 // API路由前缀
-const apiRouter = express.default.Router();
+const apiRouter = express.Router();
 
-// 错误处理中间件
-app.use((err: any, req: Request, res: Response, next: any) => {
-  const logger = getLogger();
-  const errorMsg = `服务器内部错误: ${err instanceof Error ? err.message : String(err)}`;
-  logger.error(`${errorMsg} - ${req.method} ${req.originalUrl}`);
-  
-  res.status(500).json({
-    success: false,
-    message: '服务器内部错误'
-  });
-});
+// 路由是否已设置的标志
+let routesConfigured = false;
+
+// 注意：错误处理中间件必须在所有路由定义之后配置
 
 // 初始化函数
 async function initialize_server(): Promise<void> {
@@ -96,36 +177,47 @@ async function initialize_server(): Promise<void> {
   }
 }
 
-// API路由定义
-
-/**
- * GET /api/modules - 获取根模块列表
- * 对应 FUNC001. get_root_modules
- */
-app.get('/api/modules', async (req: Request, res: Response) => {
+// 设置API路由的函数
+function setupRoutes(): void {
   const logger = getLogger();
-  logger.info('API请求: GET /api/modules');
   
-  try {
-    const result = await humanInterface.get_root_modules();
-    logger.debug(`API响应: GET /api/modules - ${result.success ? '成功' : '失败'}`);
-    return res.json(result);
-  } catch (error) {
-    const errorMsg = `API异常: GET /api/modules - ${error instanceof Error ? error.message : String(error)}`;
-    logger.error(errorMsg);
-    return res.status(500).json({
-      success: false,
-      message: '服务器内部错误',
-      data: null
-    });
+  if (routesConfigured) {
+    logger.warn('API路由已配置，跳过重复配置');
+    return;
   }
-});
+  
+  logger.info('开始配置API路由');
 
-/**
- * GET /api/modules/search - 关键词搜索模块
- * 对应 FUNC003. search_modules
- */
-app.get('/api/modules/search', async (req: Request, res: Response) => {
+  // API路由定义
+
+  /**
+   * GET /api/modules - 获取根模块列表
+   * 对应 FUNC001. get_root_modules
+   */
+  app.get('/api/modules', async (req: Request, res: Response) => {
+    const logger = getLogger();
+    logger.info('API请求: GET /api/modules');
+    
+    try {
+      const result = await humanInterface.get_root_modules();
+      logger.debug(`API响应: GET /api/modules - ${result.success ? '成功' : '失败'}`);
+      return res.json(result);
+    } catch (error) {
+      const errorMsg = `API异常: GET /api/modules - ${error instanceof Error ? error.message : String(error)}`;
+      logger.error(errorMsg);
+      return res.status(500).json({
+        success: false,
+        message: '服务器内部错误',
+        data: null
+      });
+    }
+  });
+
+  /**
+   * GET /api/modules/search - 关键词搜索模块
+   * 对应 FUNC003. search_modules
+   */
+  app.get('/api/modules/search', async (req: Request, res: Response) => {
   const logger = getLogger();
   const keyword = req.query.keyword as string;
   logger.info(`API请求: GET /api/modules/search - keyword: ${keyword}`);
@@ -541,24 +633,23 @@ app.delete('/api/modules/:id', async (req: Request, res: Response) => {
   }
 });
 
-// 健康检查接口
-app.get('/health', (req: Request, res: Response) => {
-  const logger = getLogger();
-  logger.debug('API请求: GET /health - 健康检查');
-  res.json({
-    success: true,
-    message: '服务器运行正常',
-    timestamp: new Date().toISOString()
+  // 健康检查接口
+  app.get('/health', (req: Request, res: Response) => {
+    const logger = getLogger();
+    logger.debug('API请求: GET /health - 健康检查');
+    res.json({
+      success: true,
+      message: '服务器运行正常',
+      timestamp: new Date().toISOString()
+    });
   });
-});
 
-// 404处理
-app.use((req: Request, res: Response) => {
-  res.status(404).json({
-    success: false,
-    message: `接口不存在: ${req.method} ${req.originalUrl}`
-  });
-});
+  routesConfigured = true;
+  logger.info('API路由配置完成');
+}
+
+// 注意：SPA fallback路由、错误处理和404处理将在setStaticDirectory函数中配置
+// 这样可以确保正确的中间件顺序：静态文件 -> API路由 -> SPA fallback -> 404处理
 
 // 启动服务器
 export async function start_server(port: number = 3000): Promise<void> {
